@@ -11,7 +11,7 @@ import { useForm } from "@tanstack/react-form"
 import Link from "next/link"
 import { useRouter } from "nextjs-toploader/app"
 import { parseAsString, useQueryState } from "nuqs"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { getAuthErrorMessage } from "@/lib/auth"
@@ -20,8 +20,26 @@ import { loginFormSchema } from "@/lib/schema/auth"
 export function SignInForm() {
   const router = useRouter()
   const [emailQuery] = useQueryState("email", parseAsString.withDefault(""))
+  const [callbackUrlQuery] = useQueryState(
+    "callbackURL",
+    parseAsString.withDefault(env.NEXT_PUBLIC_APP_URL)
+  )
   const { data: session, isPending } = authClient.useSession()
   const [isSocialSignInPending, setIsSocialSignInPending] = useState(false)
+  const callbackURL = useMemo(() => {
+    try {
+      const appUrl = new URL(env.NEXT_PUBLIC_APP_URL)
+      const parsed = new URL(callbackUrlQuery, appUrl)
+
+      if (parsed.origin !== appUrl.origin) {
+        return env.NEXT_PUBLIC_APP_URL
+      }
+
+      return parsed.toString()
+    } catch {
+      return env.NEXT_PUBLIC_APP_URL
+    }
+  }, [callbackUrlQuery])
 
   const form = useForm({
     defaultValues: {
@@ -36,7 +54,7 @@ export function SignInForm() {
         const { error } = await authClient.signIn.email({
           email: value.email,
           password: value.password,
-          callbackURL: env.NEXT_PUBLIC_APP_URL,
+          callbackURL,
         })
 
         if (error) {
@@ -66,7 +84,7 @@ export function SignInForm() {
 
       const { error } = await authClient.signIn.social({
         provider: "google",
-        callbackURL: env.NEXT_PUBLIC_APP_URL,
+        callbackURL,
       })
 
       if (error) {

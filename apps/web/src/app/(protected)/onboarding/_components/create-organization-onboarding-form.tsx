@@ -2,19 +2,17 @@
 
 import { authClient } from "@crikket/auth/client"
 import { Button } from "@crikket/ui/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@crikket/ui/components/ui/card"
 import { Field, FieldError, FieldLabel } from "@crikket/ui/components/ui/field"
 import { Input } from "@crikket/ui/components/ui/input"
 import { useLocalStorage } from "@crikket/ui/hooks/use-local-storage"
 import { useForm } from "@tanstack/react-form"
 import { useRouter } from "nextjs-toploader/app"
 import { toast } from "sonner"
+import { AuthShell } from "@/components/auth/auth-shell"
+import {
+  shouldAutoSyncOrganizationSlug,
+  slugifyOrganizationName,
+} from "@/lib/organization"
 import { organizationFormSchema } from "@/lib/schema/organization"
 
 export default function CreateOrganizationOnboardingForm() {
@@ -71,108 +69,94 @@ export default function CreateOrganizationOnboardingForm() {
   })
 
   return (
-    <Card className="w-full max-w-[460px] border-none shadow-xl ring-1 ring-border/50">
-      <CardHeader className="space-y-1 pt-8 text-center">
-        <CardTitle className="font-bold text-2xl tracking-tight">
-          Create your organization
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          You need an organization before you can access your dashboard.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-10">
-        <form
-          className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            form.handleSubmit()
+    <AuthShell
+      description="You need an organization before you can access your dashboard."
+      title="Create your organization"
+    >
+      <form
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          form.handleSubmit()
+        }}
+      >
+        <form.Field name="name">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && field.state.meta.errors.length > 0
+
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor={field.name}>Organization Name</FieldLabel>
+                <Input
+                  aria-invalid={isInvalid}
+                  autoComplete="off"
+                  id={field.name}
+                  name={field.name}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => {
+                    const nextName = event.target.value
+                    const previousName = field.state.value
+
+                    field.handleChange(nextName)
+
+                    const currentSlug = form.getFieldValue("slug")
+                    if (
+                      shouldAutoSyncOrganizationSlug(currentSlug, previousName)
+                    ) {
+                      form.setFieldValue(
+                        "slug",
+                        slugifyOrganizationName(nextName)
+                      )
+                    }
+                  }}
+                  placeholder="Acme Corp"
+                  value={field.state.value}
+                />
+                {isInvalid ? (
+                  <FieldError errors={field.state.meta.errors} />
+                ) : null}
+              </Field>
+            )
           }}
+        </form.Field>
+
+        <form.Field name="slug">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && field.state.meta.errors.length > 0
+
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor={field.name}>Slug</FieldLabel>
+                <Input
+                  aria-invalid={isInvalid}
+                  id={field.name}
+                  name={field.name}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder="acme-corp"
+                  value={field.state.value}
+                />
+                {isInvalid ? (
+                  <FieldError errors={field.state.meta.errors} />
+                ) : null}
+              </Field>
+            )
+          }}
+        </form.Field>
+
+        <Button
+          className="mt-2 h-11"
+          disabled={form.state.isSubmitting}
+          type="submit"
         >
-          <form.Field name="name">
-            {(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && field.state.meta.errors.length > 0
-
-              return (
-                <Field data-invalid={isInvalid}>
-                  <FieldLabel htmlFor={field.name}>
-                    Organization Name
-                  </FieldLabel>
-                  <Input
-                    aria-invalid={isInvalid}
-                    autoComplete="off"
-                    id={field.name}
-                    name={field.name}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => {
-                      const nextName = event.target.value
-                      const previousName = field.state.value
-
-                      field.handleChange(nextName)
-
-                      const currentSlug = form.getFieldValue("slug")
-                      const slugifiedPreviousName = (previousName || "")
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")
-
-                      if (
-                        currentSlug.length === 0 ||
-                        currentSlug === slugifiedPreviousName
-                      ) {
-                        form.setFieldValue(
-                          "slug",
-                          nextName.toLowerCase().replace(/\s+/g, "-")
-                        )
-                      }
-                    }}
-                    placeholder="Acme Corp"
-                    value={field.state.value}
-                  />
-                  {isInvalid ? (
-                    <FieldError errors={field.state.meta.errors} />
-                  ) : null}
-                </Field>
-              )
-            }}
-          </form.Field>
-
-          <form.Field name="slug">
-            {(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && field.state.meta.errors.length > 0
-
-              return (
-                <Field data-invalid={isInvalid}>
-                  <FieldLabel htmlFor={field.name}>Slug</FieldLabel>
-                  <Input
-                    aria-invalid={isInvalid}
-                    id={field.name}
-                    name={field.name}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder="acme-corp"
-                    value={field.state.value}
-                  />
-                  {isInvalid ? (
-                    <FieldError errors={field.state.meta.errors} />
-                  ) : null}
-                </Field>
-              )
-            }}
-          </form.Field>
-
-          <Button
-            className="mt-2 h-11"
-            disabled={form.state.isSubmitting}
-            type="submit"
-          >
-            {form.state.isSubmitting
-              ? "Creating organization..."
-              : "Create organization"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          {form.state.isSubmitting
+            ? "Creating organization..."
+            : "Create organization"}
+        </Button>
+      </form>
+    </AuthShell>
   )
 }
