@@ -121,7 +121,7 @@ export function MembersTable({
           placeholder="Search members by email"
           value={searchValue}
         />
-        <DataTable table={table} />
+        <DataTable hideSelectedRowsLabel table={table} />
         <ConfirmationDialog
           confirmText="Remove member"
           description="This user will immediately lose access to the organization."

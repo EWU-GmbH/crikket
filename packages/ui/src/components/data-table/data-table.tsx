@@ -16,11 +16,13 @@ import { cn } from "@crikket/ui/lib/utils";
 interface DataTableProps<TData> extends React.ComponentProps<"div"> {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
+  hideSelectedRowsLabel?: boolean;
 }
 
 export function DataTable<TData>({
   table,
   actionBar,
+  hideSelectedRowsLabel = false,
   children,
   className,
   ...props
@@ -91,7 +93,10 @@ export function DataTable<TData>({
         </Table>
       </div>
       <div className="flex flex-col gap-2.5">
-        <DataTablePagination table={table} />
+        <DataTablePagination
+          table={table}
+          hideSelectedRowsLabel={hideSelectedRowsLabel}
+        />
         {actionBar &&
           table.getFilteredSelectedRowModel().rows.length > 0 &&
           actionBar}
