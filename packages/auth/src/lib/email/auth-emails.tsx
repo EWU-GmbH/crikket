@@ -4,6 +4,7 @@ import { sendAuthEmail } from "./send-auth-email"
 import type { AuthEmailOtpType } from "./templates/email-otp-template"
 import { AuthEmailOtpTemplate } from "./templates/email-otp-template"
 import { EmailVerificationLinkTemplate } from "./templates/email-verification-link-template"
+import { OrganizationInvitationTemplate } from "./templates/organization-invitation-template"
 
 type SendEmailOtpEmailInput = {
   email: string
@@ -14,6 +15,14 @@ type SendEmailOtpEmailInput = {
 type SendEmailVerificationLinkEmailInput = {
   email: string
   verificationUrl: string
+}
+
+type SendOrganizationInvitationEmailInput = {
+  email: string
+  invitationId: string
+  organizationName: string
+  inviterName: string
+  role: string
 }
 
 const OTP_SUBJECTS: Record<AuthEmailOtpType, string> = {
@@ -76,6 +85,30 @@ export const sendEmailVerificationLinkEmail = async ({
     text: `Verify your email using this link: ${appVerificationUrl}`,
     react: (
       <EmailVerificationLinkTemplate verificationUrl={appVerificationUrl} />
+    ),
+  })
+}
+
+export const sendOrganizationInvitationEmail = async ({
+  email,
+  invitationId,
+  organizationName,
+  inviterName,
+  role,
+}: SendOrganizationInvitationEmailInput): Promise<void> => {
+  const invitationUrl = toAppUrl(`/invite/${invitationId}`)
+
+  await sendAuthEmail({
+    to: email,
+    subject: `You're invited to join ${organizationName}`,
+    text: `${inviterName} invited you to join ${organizationName} as ${role}. Open this invitation: ${invitationUrl}`,
+    react: (
+      <OrganizationInvitationTemplate
+        invitationUrl={invitationUrl}
+        inviterName={inviterName}
+        organizationName={organizationName}
+        role={role}
+      />
     ),
   })
 }

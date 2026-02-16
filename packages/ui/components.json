@@ -11,6 +11,8 @@
     "prefix": ""
   },
   "iconLibrary": "lucide",
+  "menuColor": "default",
+  "menuAccent": "subtle",
   "aliases": {
     "components": "@crikket/ui/components",
     "utils": "@crikket/ui/lib/utils",
@@ -18,7 +20,7 @@
     "lib": "@crikket/ui/lib",
     "hooks": "@crikket/ui/hooks"
   },
-  "menuColor": "default",
-  "menuAccent": "subtle",
-  "registries": {}
+  "registries": {
+    "@diceui": "https://diceui.com/r/{name}.json"
+  }
 }

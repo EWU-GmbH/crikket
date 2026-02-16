@@ -11,6 +11,7 @@ import { organization } from "better-auth/plugins/organization"
 import {
   sendEmailOtpEmail,
   sendEmailVerificationLinkEmail,
+  sendOrganizationInvitationEmail,
 } from "./lib/email/auth-emails"
 import { polarClient } from "./lib/payments"
 
@@ -105,7 +106,17 @@ export const auth = betterAuth({
   },
   plugins: [
     admin(),
-    organization(),
+    organization({
+      sendInvitationEmail: async (data) => {
+        await sendOrganizationInvitationEmail({
+          email: data.email,
+          invitationId: data.id,
+          inviterName: data.inviter.user.name,
+          organizationName: data.organization.name,
+          role: data.role,
+        })
+      },
+    }),
     emailOTP({
       sendVerificationOTP: async ({ email, otp, type }) => {
         await sendEmailOtpEmail({

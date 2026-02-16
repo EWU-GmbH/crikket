@@ -15,7 +15,9 @@ import {
   SidebarRail,
 } from "@crikket/ui/components/ui/sidebar"
 import { BookOpen, Settings2, Video } from "lucide-react"
+import type { Route } from "next"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import type * as React from "react"
 import { TeamSwitcher } from "@/components/team-switcher"
 import { UserNav } from "@/components/user-nav"
@@ -32,14 +34,14 @@ const navMain = [
   {
     title: "Bug Reports",
     url: "/" as const,
+    matchPrefix: "/" as const,
     icon: Video,
-    isActive: true,
   },
   {
     title: "Settings",
-    url: "#" as const,
+    url: "/settings/user" as const,
+    matchPrefix: "/settings" as const,
     icon: Settings2,
-    isActive: false,
   },
 ] as const
 
@@ -57,6 +59,8 @@ export function AppSidebar({
   activeOrganization,
   ...props
 }: AppSidebarProps) {
+  const pathname = usePathname()
+
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader>
@@ -74,8 +78,14 @@ export function AppSidebar({
               {navMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    isActive={item.isActive}
-                    render={(props) => <Link href={item.url} {...props} />}
+                    isActive={
+                      item.matchPrefix === "/"
+                        ? pathname === "/"
+                        : pathname.startsWith(item.matchPrefix)
+                    }
+                    render={(props) => (
+                      <Link href={item.url as Route} {...props} />
+                    )}
                   >
                     <item.icon />
                     <span>{item.title}</span>

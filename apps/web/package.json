@@ -20,6 +20,7 @@
     "@polar-sh/better-auth": "catalog:",
     "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@tanstack/react-table": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
     "better-auth": "catalog:",
     "lucide-react": "catalog:",

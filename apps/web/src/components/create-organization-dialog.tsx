@@ -17,6 +17,10 @@ import { useForm } from "@tanstack/react-form"
 import { useMutation } from "@tanstack/react-query"
 import { useRouter } from "nextjs-toploader/app"
 import { toast } from "sonner"
+import {
+  shouldAutoSyncOrganizationSlug,
+  slugifyOrganizationName,
+} from "@/lib/organization"
 import { organizationFormSchema } from "@/lib/schema/organization"
 import { queryClient } from "@/utils/orpc"
 
@@ -115,14 +119,12 @@ export function CreateOrganizationDialog({
                         field.handleChange(newName)
 
                         const currentSlug = form.getFieldValue("slug")
-                        const slugifiedOldName = (oldName || "")
-                          .toLowerCase()
-                          .replace(/\s+/g, "-")
-
-                        if (!currentSlug || currentSlug === slugifiedOldName) {
+                        if (
+                          shouldAutoSyncOrganizationSlug(currentSlug, oldName)
+                        ) {
                           form.setFieldValue(
                             "slug",
-                            newName.toLowerCase().replace(/\s+/g, "-")
+                            slugifyOrganizationName(newName)
                           )
                         }
                       }}
