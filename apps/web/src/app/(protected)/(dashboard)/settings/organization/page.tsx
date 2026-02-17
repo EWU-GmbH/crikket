@@ -11,8 +11,10 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { getProtectedAuthData } from "@/app/(protected)/_lib/get-protected-auth-data"
+import { client } from "@/utils/orpc"
 
 import { OrganizationMembersSection } from "../_components/org-members/organization-members-section"
+import { OrganizationBillingCard } from "../_components/organization-billing-card"
 import { OrganizationDangerZone } from "../_components/organization-danger-zone"
 import { OrganizationSettingsForm } from "../_components/organization-settings-form"
 import { parseMembersQuery } from "../_lib/members-query"
@@ -36,6 +38,12 @@ type MembersListResult = Awaited<
 type OrganizationMember = NonNullable<
   NonNullable<MembersListResult["data"]>["members"]
 >[number]
+type BillingSnapshot = Awaited<
+  ReturnType<typeof client.billing.getCurrentOrganizationPlan>
+>
+type BillingPlanLimitsSnapshot = Awaited<
+  ReturnType<typeof client.billing.getPlanLimits>
+>
 
 function toIsoString(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value
@@ -152,11 +160,41 @@ export default async function OrganizationSettingsPage({
         query: membersListQuery,
         ...authFetchOptions,
       })
+  const billingPromise: Promise<{
+    data: BillingSnapshot | null
+    error: unknown
+  }> = client.billing
+    .getCurrentOrganizationPlan({
+      organizationId: activeOrganization.id,
+    })
+    .then((data) => ({
+      data,
+      error: null,
+    }))
+    .catch((error) => ({
+      data: null,
+      error,
+    }))
+  const planLimitsPromise: Promise<{
+    data: BillingPlanLimitsSnapshot | null
+    error: unknown
+  }> = client.billing
+    .getPlanLimits()
+    .then((data) => ({
+      data,
+      error: null,
+    }))
+    .catch((error) => ({
+      data: null,
+      error,
+    }))
 
   const [
     { data: memberRoleData },
     { data: membersData, error: membersError },
     { data: invitationData, error: invitationError },
+    billingState,
+    planLimitsState,
   ] = await Promise.all([
     authClient.organization.getActiveMemberRole({
       query: {
@@ -171,7 +209,11 @@ export default async function OrganizationSettingsPage({
       },
       ...authFetchOptions,
     }),
+    billingPromise,
+    planLimitsPromise,
   ])
+  const currentBillingPlan = billingState.data?.plan ?? "free"
+  const memberCap = billingState.data?.entitlements.memberCap ?? null
 
   const members = (membersData?.members ?? []).map(
     (member: OrganizationMember) => ({
@@ -222,12 +264,24 @@ export default async function OrganizationSettingsPage({
       </Card>
 
       <OrganizationMembersSection
+        currentPlan={currentBillingPlan}
         currentUserId={session.user.id}
         currentUserRole={memberRoleData?.role ?? "member"}
+        memberCap={memberCap}
         members={members}
         organizationId={activeOrganization.id}
         pendingInvitations={pendingInvitations}
         totalMembers={membersData?.total ?? 0}
+      />
+
+      <OrganizationBillingCard
+        canManageBilling={(memberRoleData?.role ?? "member") === "owner"}
+        limits={planLimitsState.data}
+        memberCap={memberCap}
+        memberCount={billingState.data?.memberCount ?? membersData?.total ?? 0}
+        organizationId={activeOrganization.id}
+        plan={currentBillingPlan}
+        subscriptionStatus={billingState.data?.subscriptionStatus ?? "none"}
       />
 
       <OrganizationDangerZone
@@ -244,6 +298,17 @@ export default async function OrganizationSettingsPage({
       {invitationError ? (
         <p className="text-destructive text-sm">
           Failed to load invitations: {invitationError.message}
+        </p>
+      ) : null}
+      {billingState.error ? (
+        <p className="text-destructive text-sm">
+          Failed to load billing: {getAuthErrorMessage(billingState.error)}
+        </p>
+      ) : null}
+      {planLimitsState.error ? (
+        <p className="text-destructive text-sm">
+          Failed to load plan limits:{" "}
+          {getAuthErrorMessage(planLimitsState.error)}
         </p>
       ) : null}
     </div>

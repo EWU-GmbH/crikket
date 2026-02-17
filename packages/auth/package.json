@@ -17,6 +17,7 @@
   },
   "scripts": {},
   "dependencies": {
+    "@crikket/billing": "workspace:*",
     "@crikket/db": "workspace:*",
     "@crikket/env": "workspace:*",
     "@crikket/shared": "workspace:*",
