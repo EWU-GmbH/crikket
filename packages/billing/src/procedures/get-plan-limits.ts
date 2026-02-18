@@ -1,4 +1,4 @@
-import { getBillingPlanLimits } from "../service"
+import { getBillingPlanLimits } from "../service/entitlements"
 import { protectedProcedure } from "./context"
 
 export const getPlanLimits = protectedProcedure.handler(() => {

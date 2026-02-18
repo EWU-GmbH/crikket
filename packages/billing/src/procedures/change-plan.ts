@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/server"
 import { z } from "zod"
 
-import { changeOrganizationPlan } from "../service"
+import { changeOrganizationPlan } from "../service/checkout"
 import { protectedProcedure } from "./context"
 
 const changePlanInputSchema = z.object({

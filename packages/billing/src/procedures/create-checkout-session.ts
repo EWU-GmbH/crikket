@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/server"
 import { z } from "zod"
 
-import { createOrganizationCheckoutSession } from "../service"
+import { createOrganizationCheckoutSession } from "../service/checkout"
 import { protectedProcedure } from "./context"
 
 const createCheckoutSessionInputSchema = z.object({
