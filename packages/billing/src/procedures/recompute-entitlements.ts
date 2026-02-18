@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/server"
 import { z } from "zod"
 
-import { recomputeOrganizationEntitlements } from "../service"
+import { recomputeOrganizationEntitlements } from "../service/entitlements"
 import { protectedProcedure } from "./context"
 
 const recomputeEntitlementsInputSchema = z.object({

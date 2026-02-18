@@ -1,10 +1,8 @@
 import { ORPCError } from "@orpc/server"
 import { z } from "zod"
 
-import {
-  assertUserBelongsToOrganization,
-  getOrganizationBillingSnapshot,
-} from "../service"
+import { assertUserBelongsToOrganization } from "../service/access"
+import { getOrganizationBillingSnapshot } from "../service/entitlements"
 import { protectedProcedure } from "./context"
 
 const currentPlanInputSchema = z.object({
@@ -36,9 +34,12 @@ export const getCurrentOrganizationPlan = protectedProcedure
         organizationId,
         userId: context.session.user.id,
       })
-    } catch {
+    } catch (error) {
       throw new ORPCError("FORBIDDEN", {
-        message: "You do not have access to this organization.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "You do not have access to this organization.",
       })
     }
 

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import {
   boolean,
   index,
@@ -18,7 +18,7 @@ export const organizationBillingAccount = pgTable(
       .primaryKey()
       .references(() => organization.id, { onDelete: "cascade" }),
     provider: text("provider").default("polar").notNull(),
-    polarCustomerId: text("polar_customer_id").unique(),
+    polarCustomerId: text("polar_customer_id"),
     polarSubscriptionId: text("polar_subscription_id").unique(),
     plan: text("plan").default("free").notNull(),
     subscriptionStatus: text("subscription_status").default("none").notNull(),
@@ -32,7 +32,10 @@ export const organizationBillingAccount = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("org_billing_plan_idx").on(table.plan)]
+  (table) => [
+    index("org_billing_plan_idx").on(table.plan),
+    index("org_billing_polar_customer_idx").on(table.polarCustomerId),
+  ]
 )
 
 export const organizationEntitlement = pgTable(
@@ -42,12 +45,10 @@ export const organizationEntitlement = pgTable(
       .primaryKey()
       .references(() => organization.id, { onDelete: "cascade" }),
     plan: text("plan").default("free").notNull(),
-    canCreateBugReports: boolean("can_create_bug_reports")
-      .default(false)
+    entitlements: jsonb("entitlements")
+      .$type<Record<string, unknown>>()
+      .default(sql`'{}'::jsonb`)
       .notNull(),
-    canUploadVideo: boolean("can_upload_video").default(false).notNull(),
-    maxVideoDurationMs: integer("max_video_duration_ms"),
-    memberCap: integer("member_cap"),
     lastComputedAt: timestamp("last_computed_at").defaultNow().notNull(),
     source: text("source").default("reconciliation").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

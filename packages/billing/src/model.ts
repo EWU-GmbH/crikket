@@ -40,6 +40,8 @@ export type EntitlementSnapshot = {
   memberCap: number | null
 }
 
+export type EntitlementMetadata = Record<string, unknown>
+
 export type BillingPlanLimitSnapshot = EntitlementSnapshot & {
   monthlyPriceUsd: number
 }
@@ -101,6 +103,72 @@ export const billingPlanConfig: Record<BillingPlan, EntitlementSnapshot> =
   Object.fromEntries(
     BILLING_PLANS.map((plan) => [plan, createPlanEntitlements(plan)])
   ) as Record<BillingPlan, EntitlementSnapshot>
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null
+  }
+
+  return value as Record<string, unknown>
+}
+
+function readBoolean(value: unknown, fallbackValue: boolean): boolean {
+  return typeof value === "boolean" ? value : fallbackValue
+}
+
+function readNullableNumber(
+  value: unknown,
+  fallbackValue: number | null
+): number | null {
+  if (value === null) {
+    return null
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  return fallbackValue
+}
+
+export function serializeEntitlements(
+  snapshot: EntitlementSnapshot
+): EntitlementMetadata {
+  return {
+    canCreateBugReports: snapshot.canCreateBugReports,
+    canUploadVideo: snapshot.canUploadVideo,
+    maxVideoDurationMs: snapshot.maxVideoDurationMs,
+    memberCap: snapshot.memberCap,
+  }
+}
+
+export function deserializeEntitlements(
+  plan: BillingPlan,
+  metadata: unknown
+): EntitlementSnapshot {
+  const metadataRecord = asRecord(metadata)
+  const baseline = billingPlanConfig[plan]
+
+  return {
+    plan,
+    canCreateBugReports: readBoolean(
+      metadataRecord?.canCreateBugReports,
+      baseline.canCreateBugReports
+    ),
+    canUploadVideo: readBoolean(
+      metadataRecord?.canUploadVideo,
+      baseline.canUploadVideo
+    ),
+    maxVideoDurationMs: readNullableNumber(
+      metadataRecord?.maxVideoDurationMs,
+      baseline.maxVideoDurationMs
+    ),
+    memberCap: readNullableNumber(
+      metadataRecord?.memberCap,
+      baseline.memberCap
+    ),
+  }
+}
 
 export const billingPlanMonthlyPriceUsd: Record<BillingPlan, number> = {
   free: 0,
