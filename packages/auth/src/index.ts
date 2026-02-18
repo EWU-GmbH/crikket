@@ -27,6 +27,12 @@ const isProduction = env.NODE_ENV === "production"
 const trustedOrigins = Array.from(
   new Set([env.BETTER_AUTH_URL, ...env.CORS_ORIGINS])
 )
+const crossSubDomainCookies = env.BETTER_AUTH_COOKIE_DOMAIN
+  ? {
+      enabled: true,
+      domain: env.BETTER_AUTH_COOKIE_DOMAIN,
+    }
+  : undefined
 
 const socialProviders =
   env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
@@ -121,6 +127,7 @@ export const auth = betterAuth({
   },
   advanced: {
     useSecureCookies: isProduction,
+    ...(crossSubDomainCookies ? { crossSubDomainCookies } : {}),
     defaultCookieAttributes: {
       sameSite: isProduction ? "none" : "lax",
       secure: isProduction,
