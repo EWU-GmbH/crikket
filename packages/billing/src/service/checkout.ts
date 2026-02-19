@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import { polarClient } from "../lib/payments"
 import {
   ACTIVE_PAID_SUBSCRIPTION_STATUSES,
+  type BillingPlan,
   normalizeBillingPlan,
   normalizeBillingSubscriptionStatus,
 } from "../model"
@@ -19,12 +20,26 @@ import type { ChangeOrganizationPlanResult } from "./types"
 import { getErrorMessage } from "./utils"
 import { findWebhookBillingBackfill } from "./webhooks"
 
-function resolveProductIdByPlan(plan: "pro" | "studio"): string {
+type BillingInterval = "monthly" | "yearly"
+
+function resolveProductIdByPlan(input: {
+  plan: Exclude<BillingPlan, "free">
+  billingInterval: BillingInterval
+}): string {
   const productId =
-    plan === "studio" ? env.POLAR_STUDIO_PRODUCT_ID : env.POLAR_PRO_PRODUCT_ID
+    input.plan === "studio"
+      ? input.billingInterval === "yearly"
+        ? env.POLAR_STUDIO_YEARLY_PRODUCT_ID
+        : env.POLAR_STUDIO_PRODUCT_ID
+      : input.billingInterval === "yearly"
+        ? env.POLAR_PRO_YEARLY_PRODUCT_ID
+        : env.POLAR_PRO_PRODUCT_ID
+
   if (!productId) {
+    const productPeriodSuffix =
+      input.billingInterval === "yearly" ? "_YEARLY" : ""
     throw new ORPCError("INTERNAL_SERVER_ERROR", {
-      message: `POLAR_${plan.toUpperCase()}_PRODUCT_ID is not configured.`,
+      message: `POLAR_${input.plan.toUpperCase()}${productPeriodSuffix}_PRODUCT_ID is not configured.`,
     })
   }
 
@@ -42,8 +57,6 @@ function assertPaymentsEnabled(): void {
 }
 
 type OrganizationBillingAccountSnapshot = {
-  plan: string
-  subscriptionStatus: string
   polarCustomerId: string | null
   polarSubscriptionId: string | null
   currentPeriodStart: Date | null
@@ -137,6 +150,7 @@ async function findUpdatableSubscription(input: {
 export async function createOrganizationCheckoutSession(input: {
   organizationId: string
   plan: "pro" | "studio"
+  billingInterval?: BillingInterval
   userId: string
 }): Promise<{ url: string }> {
   assertPaymentsEnabled()
@@ -152,7 +166,11 @@ export async function createOrganizationCheckoutSession(input: {
     })
   }
 
-  const productId = resolveProductIdByPlan(input.plan)
+  const billingInterval = input.billingInterval ?? "monthly"
+  const productId = resolveProductIdByPlan({
+    plan: input.plan,
+    billingInterval,
+  })
 
   const existingBillingAccount =
     await db.query.organizationBillingAccount.findFirst({
@@ -174,6 +192,7 @@ export async function createOrganizationCheckoutSession(input: {
       products: [productId],
       successUrl: env.POLAR_SUCCESS_URL,
       metadata: {
+        billingInterval,
         initiatedByUserId: input.userId,
         plan: input.plan,
         referenceId: input.organizationId,
@@ -194,6 +213,7 @@ export async function createOrganizationCheckoutSession(input: {
 export async function changeOrganizationPlan(input: {
   organizationId: string
   plan: "pro" | "studio"
+  billingInterval?: BillingInterval
   userId: string
 }): Promise<ChangeOrganizationPlanResult> {
   assertPaymentsEnabled()
@@ -206,8 +226,6 @@ export async function changeOrganizationPlan(input: {
   const billingAccount = await db.query.organizationBillingAccount.findFirst({
     where: eq(organizationBillingAccount.organizationId, input.organizationId),
     columns: {
-      plan: true,
-      subscriptionStatus: true,
       polarCustomerId: true,
       polarSubscriptionId: true,
       currentPeriodStart: true,
@@ -217,14 +235,11 @@ export async function changeOrganizationPlan(input: {
   })
 
   const nextPlan = normalizeBillingPlan(input.plan)
-  const currentPlan = normalizeBillingPlan(billingAccount?.plan)
-
-  if (currentPlan === nextPlan) {
-    return {
-      action: "unchanged",
-      plan: nextPlan,
-    }
-  }
+  const billingInterval = input.billingInterval ?? "monthly"
+  const targetProductId = resolveProductIdByPlan({
+    plan: input.plan,
+    billingInterval,
+  })
 
   const updatableSubscription = billingAccount
     ? await findUpdatableSubscription({
@@ -242,6 +257,7 @@ export async function changeOrganizationPlan(input: {
 
   if (!updatableSubscription) {
     const checkout = await createOrganizationCheckoutSession({
+      billingInterval,
       organizationId: input.organizationId,
       plan: input.plan,
       userId: input.userId,
@@ -254,7 +270,19 @@ export async function changeOrganizationPlan(input: {
     }
   }
 
-  const targetProductId = resolveProductIdByPlan(input.plan)
+  const currentPlan = normalizeBillingPlan(
+    resolvePlanFromProductId(updatableSubscription.productId)
+  )
+  const isSamePlanAndCadence =
+    currentPlan === nextPlan &&
+    updatableSubscription.productId === targetProductId
+
+  if (isSamePlanAndCadence) {
+    return {
+      action: "unchanged",
+      plan: nextPlan,
+    }
+  }
 
   try {
     const subscription = await polarClient.subscriptions.update({

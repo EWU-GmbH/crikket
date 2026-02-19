@@ -21,11 +21,17 @@ export function resolvePlanFromProductId(
     return undefined
   }
 
-  if (productId === env.POLAR_STUDIO_PRODUCT_ID) {
+  if (
+    productId === env.POLAR_STUDIO_PRODUCT_ID ||
+    productId === env.POLAR_STUDIO_YEARLY_PRODUCT_ID
+  ) {
     return BILLING_PLAN.studio
   }
 
-  if (productId === env.POLAR_PRO_PRODUCT_ID) {
+  if (
+    productId === env.POLAR_PRO_PRODUCT_ID ||
+    productId === env.POLAR_PRO_YEARLY_PRODUCT_ID
+  ) {
     return BILLING_PLAN.pro
   }
 

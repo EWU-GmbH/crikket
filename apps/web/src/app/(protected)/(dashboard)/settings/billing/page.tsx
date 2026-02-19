@@ -123,6 +123,7 @@ export default async function BillingSettingsPage() {
       <OrganizationBillingCard
         canManageBilling={(memberRoleData?.role ?? "member") === "owner"}
         currentPeriodEnd={billingState.data?.currentPeriodEnd ?? null}
+        currentPeriodStart={billingState.data?.currentPeriodStart ?? null}
         limits={planLimitsState.data}
         memberCap={billingState.data?.entitlements.memberCap ?? null}
         memberCount={billingState.data?.memberCount ?? 0}

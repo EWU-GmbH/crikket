@@ -44,6 +44,7 @@ export type EntitlementMetadata = Record<string, unknown>
 
 export type BillingPlanLimitSnapshot = EntitlementSnapshot & {
   monthlyPriceUsd: number
+  yearlyPriceUsd: number
 }
 
 export const billingPlanEntitlementsConfig: Record<
@@ -176,13 +177,21 @@ export const billingPlanMonthlyPriceUsd: Record<BillingPlan, number> = {
   studio: 49,
 }
 
+export const billingPlanYearlyPriceUsd: Record<BillingPlan, number> = {
+  free: 0,
+  pro: 250,
+  studio: 490,
+}
+
 function createPlanLimitSnapshot(
   entitlements: EntitlementSnapshot,
-  monthlyPriceUsd: number
+  monthlyPriceUsd: number,
+  yearlyPriceUsd: number
 ): BillingPlanLimitSnapshot {
   return {
     ...entitlements,
     monthlyPriceUsd,
+    yearlyPriceUsd,
   }
 }
 
@@ -195,7 +204,8 @@ export function getBillingPlanLimitsSnapshot(): Record<
       plan,
       createPlanLimitSnapshot(
         billingPlanConfig[plan],
-        billingPlanMonthlyPriceUsd[plan]
+        billingPlanMonthlyPriceUsd[plan],
+        billingPlanYearlyPriceUsd[plan]
       ),
     ])
   ) as Record<BillingPlan, BillingPlanLimitSnapshot>
@@ -208,7 +218,7 @@ export function getBillingDisabledPlanLimitsSnapshot(): Record<
   return Object.fromEntries(
     BILLING_PLANS.map((plan) => [
       plan,
-      createPlanLimitSnapshot(getBillingDisabledEntitlements(plan), 0),
+      createPlanLimitSnapshot(getBillingDisabledEntitlements(plan), 0, 0),
     ])
   ) as Record<BillingPlan, BillingPlanLimitSnapshot>
 }

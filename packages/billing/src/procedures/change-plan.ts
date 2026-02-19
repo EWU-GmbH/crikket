@@ -6,6 +6,7 @@ import { protectedProcedure } from "./context"
 
 const changePlanInputSchema = z.object({
   organizationId: z.string().min(1).optional(),
+  billingInterval: z.enum(["monthly", "yearly"]).default("monthly"),
   plan: z.enum(["pro", "studio"]),
 })
 
@@ -30,6 +31,7 @@ export const changePlan = protectedProcedure
     })
 
     return changeOrganizationPlan({
+      billingInterval: input.billingInterval,
       organizationId,
       plan: input.plan,
       userId: context.session.user.id,

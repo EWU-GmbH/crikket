@@ -12,7 +12,9 @@ export const env = createEnv({
     POLAR_SUCCESS_URL: z.url().optional(),
     POLAR_WEBHOOK_SECRET: z.string().min(1).optional(),
     POLAR_PRO_PRODUCT_ID: z.string().min(1).optional(),
+    POLAR_PRO_YEARLY_PRODUCT_ID: z.string().min(1).optional(),
     POLAR_STUDIO_PRODUCT_ID: z.string().min(1).optional(),
+    POLAR_STUDIO_YEARLY_PRODUCT_ID: z.string().min(1).optional(),
     CORS_ORIGINS: z
       .string()
       .optional()
