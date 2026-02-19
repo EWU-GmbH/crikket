@@ -14,7 +14,6 @@ import { getProtectedAuthData } from "@/app/(protected)/_lib/get-protected-auth-
 import { client } from "@/utils/orpc"
 
 import { OrganizationMembersSection } from "../_components/org-members/organization-members-section"
-import { OrganizationBillingCard } from "../_components/organization-billing-card"
 import { OrganizationDangerZone } from "../_components/organization-danger-zone"
 import { OrganizationSettingsForm } from "../_components/organization-settings-form"
 import { parseMembersQuery } from "../_lib/members-query"
@@ -40,9 +39,6 @@ type OrganizationMember = NonNullable<
 >[number]
 type BillingSnapshot = Awaited<
   ReturnType<typeof client.billing.getCurrentOrganizationPlan>
->
-type BillingPlanLimitsSnapshot = Awaited<
-  ReturnType<typeof client.billing.getPlanLimits>
 >
 
 function toIsoString(value: Date | string): string {
@@ -175,26 +171,11 @@ export default async function OrganizationSettingsPage({
       data: null,
       error,
     }))
-  const planLimitsPromise: Promise<{
-    data: BillingPlanLimitsSnapshot | null
-    error: unknown
-  }> = client.billing
-    .getPlanLimits()
-    .then((data) => ({
-      data,
-      error: null,
-    }))
-    .catch((error) => ({
-      data: null,
-      error,
-    }))
-
   const [
     { data: memberRoleData },
     { data: membersData, error: membersError },
     { data: invitationData, error: invitationError },
     billingState,
-    planLimitsState,
   ] = await Promise.all([
     authClient.organization.getActiveMemberRole({
       query: {
@@ -210,7 +191,6 @@ export default async function OrganizationSettingsPage({
       ...authFetchOptions,
     }),
     billingPromise,
-    planLimitsPromise,
   ])
   const currentBillingPlan = billingState.data?.plan ?? "free"
   const memberCap = billingState.data?.entitlements.memberCap ?? null
@@ -274,16 +254,6 @@ export default async function OrganizationSettingsPage({
         totalMembers={membersData?.total ?? 0}
       />
 
-      <OrganizationBillingCard
-        canManageBilling={(memberRoleData?.role ?? "member") === "owner"}
-        limits={planLimitsState.data}
-        memberCap={memberCap}
-        memberCount={billingState.data?.memberCount ?? membersData?.total ?? 0}
-        organizationId={activeOrganization.id}
-        plan={currentBillingPlan}
-        subscriptionStatus={billingState.data?.subscriptionStatus ?? "none"}
-      />
-
       <OrganizationDangerZone
         currentUserRole={memberRoleData?.role ?? "member"}
         organizationId={activeOrganization.id}
@@ -303,12 +273,6 @@ export default async function OrganizationSettingsPage({
       {billingState.error ? (
         <p className="text-destructive text-sm">
           Failed to load billing: {getAuthErrorMessage(billingState.error)}
-        </p>
-      ) : null}
-      {planLimitsState.error ? (
-        <p className="text-destructive text-sm">
-          Failed to load plan limits:{" "}
-          {getAuthErrorMessage(planLimitsState.error)}
         </p>
       ) : null}
     </div>

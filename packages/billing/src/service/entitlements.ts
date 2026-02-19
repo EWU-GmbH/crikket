@@ -9,7 +9,6 @@ import { count, eq } from "drizzle-orm"
 
 import {
   BILLING_PLAN,
-  BILLING_SUBSCRIPTION_STATUS,
   type BillingPlan,
   type BillingPlanLimitSnapshot,
   deserializeEntitlements,
@@ -108,7 +107,7 @@ export function upsertOrganizationBillingProjection(
       .insert(organizationEntitlement)
       .values({
         organizationId: input.organizationId,
-        plan: nextPlan,
+        plan: entitlements.plan,
         entitlements: nextEntitlementsPayload,
         lastComputedAt: new Date(),
         source: input.source ?? "reconciliation",
@@ -116,7 +115,7 @@ export function upsertOrganizationBillingProjection(
       .onConflictDoUpdate({
         target: organizationEntitlement.organizationId,
         set: {
-          plan: nextPlan,
+          plan: entitlements.plan,
           entitlements: nextEntitlementsPayload,
           lastComputedAt: new Date(),
           source: input.source ?? "reconciliation",
@@ -135,25 +134,33 @@ export async function getOrganizationEntitlements(
     return getBillingDisabledEntitlements()
   }
 
-  const row = await db.query.organizationEntitlement.findFirst({
-    where: eq(organizationEntitlement.organizationId, organizationId),
-    columns: {
-      plan: true,
-      entitlements: true,
-    },
+  const [billingRow, row] = await Promise.all([
+    db.query.organizationBillingAccount.findFirst({
+      where: eq(organizationBillingAccount.organizationId, organizationId),
+      columns: {
+        plan: true,
+        subscriptionStatus: true,
+      },
+    }),
+    db.query.organizationEntitlement.findFirst({
+      where: eq(organizationEntitlement.organizationId, organizationId),
+      columns: {
+        entitlements: true,
+      },
+    }),
+  ])
+  const effectiveEntitlements = resolveEntitlements({
+    plan: normalizeBillingPlan(billingRow?.plan),
+    subscriptionStatus: normalizeBillingSubscriptionStatus(
+      billingRow?.subscriptionStatus
+    ),
   })
 
   if (row) {
-    return deserializeEntitlements(
-      normalizeBillingPlan(row.plan),
-      row.entitlements
-    )
+    return deserializeEntitlements(effectiveEntitlements.plan, row.entitlements)
   }
 
-  return resolveEntitlements({
-    plan: BILLING_PLAN.free,
-    subscriptionStatus: BILLING_SUBSCRIPTION_STATUS.none,
-  })
+  return effectiveEntitlements
 }
 
 export async function getOrganizationBillingSnapshot(
@@ -179,7 +186,7 @@ export async function getOrganizationBillingSnapshot(
 
   return {
     organizationId,
-    plan: normalizeBillingPlan(billingRow?.plan),
+    plan: entitlement.plan,
     subscriptionStatus: normalizeBillingSubscriptionStatus(
       billingRow?.subscriptionStatus
     ),

@@ -90,10 +90,15 @@ export function extractCustomerId(
 export function extractSubscriptionId(
   payload: PolarWebhookPayload
 ): string | undefined {
+  const eventType = typeof payload.type === "string" ? payload.type : ""
+  const canFallbackToResourceId = eventType.startsWith("subscription.")
+
   return (
     getNestedString(payload, ["data", "subscriptionId"]) ??
-    getNestedString(payload, ["data", "id"]) ??
-    getNestedString(payload, ["data", "subscription", "id"])
+    getNestedString(payload, ["data", "subscription", "id"]) ??
+    (canFallbackToResourceId
+      ? getNestedString(payload, ["data", "id"])
+      : undefined)
   )
 }
 

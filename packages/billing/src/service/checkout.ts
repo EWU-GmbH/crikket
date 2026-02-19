@@ -11,7 +11,10 @@ import {
 } from "../model"
 import { assertUserCanManageOrganizationBilling } from "./access"
 import { upsertOrganizationBillingProjection } from "./entitlements"
-import { resolvePlanFromProductId } from "./polar-payload"
+import {
+  extractReferenceIdFromMetadata,
+  resolvePlanFromProductId,
+} from "./polar-payload"
 import type { ChangeOrganizationPlanResult } from "./types"
 import { getErrorMessage } from "./utils"
 import { findWebhookBillingBackfill } from "./webhooks"
@@ -36,6 +39,99 @@ function assertPaymentsEnabled(): void {
   throw new ORPCError("BAD_REQUEST", {
     message: "Payments are disabled in this deployment.",
   })
+}
+
+type OrganizationBillingAccountSnapshot = {
+  plan: string
+  subscriptionStatus: string
+  polarCustomerId: string | null
+  polarSubscriptionId: string | null
+  currentPeriodStart: Date | null
+  currentPeriodEnd: Date | null
+  cancelAtPeriodEnd: boolean | null
+}
+
+function isPolarResourceNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false
+  }
+
+  const errorCode =
+    "error" in error && typeof error.error === "string" ? error.error : ""
+  if (errorCode === "ResourceNotFound") {
+    return true
+  }
+
+  const message = getErrorMessage(error, "")
+  return message.includes("ResourceNotFound")
+}
+
+function isActivePaidSubscriptionStatus(status: unknown): boolean {
+  return ACTIVE_PAID_SUBSCRIPTION_STATUSES.has(
+    normalizeBillingSubscriptionStatus(status)
+  )
+}
+
+function isSubscriptionBoundToOrganization(
+  subscription: {
+    metadata: unknown
+    customer: { externalId: string | null }
+  },
+  organizationId: string
+): boolean {
+  const referenceId = extractReferenceIdFromMetadata(subscription.metadata)
+  if (referenceId === organizationId) {
+    return true
+  }
+
+  return subscription.customer.externalId === organizationId
+}
+
+async function findUpdatableSubscription(input: {
+  organizationId: string
+  billingAccount: OrganizationBillingAccountSnapshot
+}) {
+  const { billingAccount, organizationId } = input
+  const candidateSubscriptionId = billingAccount.polarSubscriptionId
+  if (candidateSubscriptionId) {
+    try {
+      const subscription = await polarClient.subscriptions.get({
+        id: candidateSubscriptionId,
+      })
+      const customerMatches =
+        !billingAccount.polarCustomerId ||
+        subscription.customerId === billingAccount.polarCustomerId
+
+      if (
+        customerMatches &&
+        isActivePaidSubscriptionStatus(subscription.status)
+      ) {
+        return subscription
+      }
+    } catch (error) {
+      if (!isPolarResourceNotFoundError(error)) {
+        throw error
+      }
+    }
+  }
+
+  const listFilter = billingAccount.polarCustomerId
+    ? { customerId: billingAccount.polarCustomerId }
+    : { externalCustomerId: organizationId }
+  const page = await polarClient.subscriptions.list({
+    ...listFilter,
+    active: true,
+    limit: 100,
+  })
+  const activeSubscriptions = page.result.items.filter((subscription) =>
+    isActivePaidSubscriptionStatus(subscription.status)
+  )
+
+  const orgMatchedSubscription = activeSubscriptions.find((subscription) =>
+    isSubscriptionBoundToOrganization(subscription, organizationId)
+  )
+
+  return orgMatchedSubscription ?? activeSubscriptions[0] ?? null
 }
 
 export async function createOrganizationCheckoutSession(input: {
@@ -122,9 +218,6 @@ export async function changeOrganizationPlan(input: {
 
   const nextPlan = normalizeBillingPlan(input.plan)
   const currentPlan = normalizeBillingPlan(billingAccount?.plan)
-  const currentSubscriptionStatus = normalizeBillingSubscriptionStatus(
-    billingAccount?.subscriptionStatus
-  )
 
   if (currentPlan === nextPlan) {
     return {
@@ -133,13 +226,21 @@ export async function changeOrganizationPlan(input: {
     }
   }
 
-  const subscriptionId = billingAccount?.polarSubscriptionId
-  const hasActivePaidSubscription =
-    typeof subscriptionId === "string" &&
-    subscriptionId.length > 0 &&
-    ACTIVE_PAID_SUBSCRIPTION_STATUSES.has(currentSubscriptionStatus)
+  const updatableSubscription = billingAccount
+    ? await findUpdatableSubscription({
+        organizationId: input.organizationId,
+        billingAccount,
+      }).catch((error) => {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: getErrorMessage(
+            error,
+            "Failed to resolve existing subscription"
+          ),
+        })
+      })
+    : null
 
-  if (!(billingAccount && hasActivePaidSubscription)) {
+  if (!updatableSubscription) {
     const checkout = await createOrganizationCheckoutSession({
       organizationId: input.organizationId,
       plan: input.plan,
@@ -157,7 +258,7 @@ export async function changeOrganizationPlan(input: {
 
   try {
     const subscription = await polarClient.subscriptions.update({
-      id: subscriptionId,
+      id: updatableSubscription.id,
       subscriptionUpdate: {
         productId: targetProductId,
       },
@@ -175,19 +276,25 @@ export async function changeOrganizationPlan(input: {
       plan: resolvedPlan,
       subscriptionStatus: resolvedSubscriptionStatus,
       polarCustomerId:
-        subscription.customerId ?? billingAccount.polarCustomerId ?? undefined,
+        subscription.customerId ??
+        updatableSubscription.customerId ??
+        billingAccount?.polarCustomerId ??
+        undefined,
       polarSubscriptionId: subscription.id,
       currentPeriodStart:
         subscription.currentPeriodStart ??
-        billingAccount.currentPeriodStart ??
+        updatableSubscription.currentPeriodStart ??
+        billingAccount?.currentPeriodStart ??
         undefined,
       currentPeriodEnd:
         subscription.currentPeriodEnd ??
-        billingAccount.currentPeriodEnd ??
+        updatableSubscription.currentPeriodEnd ??
+        billingAccount?.currentPeriodEnd ??
         undefined,
       cancelAtPeriodEnd:
         subscription.cancelAtPeriodEnd ??
-        billingAccount.cancelAtPeriodEnd ??
+        updatableSubscription.cancelAtPeriodEnd ??
+        billingAccount?.cancelAtPeriodEnd ??
         false,
       source: "manual-change-plan",
     })
