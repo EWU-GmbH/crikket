@@ -131,21 +131,6 @@ export function inferCurrentBillingInterval(input: {
   return days >= 330 ? "yearly" : "monthly"
 }
 
-export function getPlanSwitchActionLabel(input: {
-  currentPlan: BillingPlan
-  nextPlan: SwitchablePlan
-}): string {
-  if (input.currentPlan === "free") {
-    return `Choose ${formatPlanLabel(input.nextPlan)}`
-  }
-
-  if (input.currentPlan === "pro" && input.nextPlan === "studio") {
-    return "Upgrade to Studio"
-  }
-
-  return "Select Plan"
-}
-
 export function getPlanOptions(prices: {
   proPrice: number
   proYearlyPrice: number

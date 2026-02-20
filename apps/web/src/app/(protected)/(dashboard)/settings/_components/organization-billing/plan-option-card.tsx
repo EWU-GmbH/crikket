@@ -5,7 +5,6 @@ import type { PlanOption, PlanOptionCardContext, SwitchablePlan } from "./types"
 import {
   formatMoney,
   formatPlanLabel,
-  getPlanSwitchActionLabel,
   planBadgeVariant,
   resolvePriceByInterval,
 } from "./utils"
@@ -21,10 +20,6 @@ export function PlanOptionCard(props: PlanOptionCardProps) {
   const isCurrentPlan =
     context.currentPlan === option.slug &&
     context.currentBillingInterval === context.billingInterval
-  const actionLabel = getPlanSwitchActionLabel({
-    currentPlan: context.currentPlan,
-    nextPlan: option.slug,
-  })
 
   return (
     <div className="rounded-xl border p-4">
@@ -50,7 +45,7 @@ export function PlanOptionCard(props: PlanOptionCardProps) {
         onClick={() => props.onSelect(option.slug)}
         variant={isCurrentPlan ? "outline" : "default"}
       >
-        {isCurrentPlan ? "Current plan" : actionLabel}
+        {isCurrentPlan ? "Current plan" : "Select plan"}
       </Button>
     </div>
   )
