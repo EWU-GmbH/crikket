@@ -15,15 +15,25 @@ import { BugReportsToolbar } from "./bug-reports-toolbar"
 export function BugReportsList() {
   const filtersState = useBugReportsFilters()
 
-  const dataState = useBugReportsData({
+  const {
+    reports,
+    stats,
+    refetchAll,
+    isError,
+    errorMessage,
+    isLoading,
+    isFetching,
+    refetch,
+    loadMoreRef,
+  } = useBugReportsData({
     search: filtersState.debouncedSearch,
     sort: filtersState.sort,
     filters: filtersState.filters,
   })
 
   const actionsState = useBugReportsActions({
-    reportIds: dataState.reports.map((report) => report.id),
-    refetchAll: dataState.refetchAll,
+    reportIds: reports.map((report) => report.id),
+    refetchAll,
   })
 
   return (
@@ -44,7 +54,7 @@ export function BugReportsList() {
         onToggleVisibility={filtersState.toggleVisibility}
         search={filtersState.searchValue}
         sort={filtersState.sort}
-        stats={dataState.stats}
+        stats={stats}
       />
 
       <SelectionActionBar
@@ -67,15 +77,15 @@ export function BugReportsList() {
         selectedCount={actionsState.selectedCount}
       />
 
-      {dataState.query.isError ? (
+      {isError ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
           <p className="font-medium text-sm">Failed to load bug reports</p>
           <p className="mt-1 text-muted-foreground text-sm">
-            {dataState.query.error.message || "Unexpected error"}
+            {errorMessage || "Unexpected error"}
           </p>
           <Button
             className="mt-3"
-            onClick={() => dataState.query.refetch()}
+            onClick={() => refetch()}
             size="sm"
             variant="outline"
           >
@@ -84,20 +94,18 @@ export function BugReportsList() {
         </div>
       ) : null}
 
-      {dataState.query.isLoading ? (
+      {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+          {["s1", "s2", "s3", "s4"].map((skeletonKey) => (
             <div
               className="aspect-video w-full animate-pulse rounded-lg bg-muted"
-              key={i}
+              key={skeletonKey}
             />
           ))}
         </div>
       ) : null}
 
-      {!dataState.query.isLoading &&
-      dataState.reports.length === 0 &&
-      !dataState.query.isError ? (
+      {!isLoading && reports.length === 0 && !isError ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-lg border py-20">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
             <Play className="h-10 w-10 text-muted-foreground" />
@@ -117,9 +125,9 @@ export function BugReportsList() {
         </div>
       ) : null}
 
-      {dataState.reports.length > 0 ? (
+      {reports.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {dataState.reports.map((report) => (
+          {reports.map((report) => (
             <BugReportCard
               isChecked={actionsState.selectedIds.has(report.id)}
               isMutating={actionsState.isMutating}
@@ -140,13 +148,13 @@ export function BugReportsList() {
         </div>
       ) : null}
 
-      {dataState.query.isFetching ? (
+      {isFetching ? (
         <div className="flex justify-center py-2">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : null}
 
-      <div aria-hidden className="h-1 w-full" ref={dataState.loadMoreRef} />
+      <div aria-hidden className="h-1 w-full" ref={loadMoreRef} />
 
       <BugReportsDeleteDialogs
         bulkDeleteOpen={actionsState.bulkDeleteOpen}
