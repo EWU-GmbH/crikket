@@ -177,7 +177,6 @@ export function NetworkRequestsPanel({
           <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="h-8 pl-7 text-xs"
-            defaultValue={searchParamValue ?? ""}
             onChange={(event) => {
               syncSearchQuery(event.target.value)
             }}
