@@ -1,11 +1,11 @@
-import { createOrganizationPortalSession } from "../service/checkout/portal-session"
+import { cancelOrganizationSubscription } from "../service/checkout/cancel-subscription"
 import { protectedProcedure } from "./context"
 import {
   optionalOrganizationIdInputSchema,
   resolveOrganizationId,
 } from "./organization-id"
 
-export const openPortal = protectedProcedure
+export const cancelSubscription = protectedProcedure
   .input(optionalOrganizationIdInputSchema)
   .handler(({ context, input }) => {
     const organizationId = resolveOrganizationId({
@@ -13,7 +13,7 @@ export const openPortal = protectedProcedure
       activeOrganizationId: context.session.session.activeOrganizationId,
     })
 
-    return createOrganizationPortalSession({
+    return cancelOrganizationSubscription({
       organizationId,
       userId: context.session.user.id,
     })
