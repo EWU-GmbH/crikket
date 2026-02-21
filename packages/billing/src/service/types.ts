@@ -13,6 +13,7 @@ export type BillingProjectionInput = {
   currentPeriodStart?: Date
   currentPeriodEnd?: Date
   cancelAtPeriodEnd?: boolean
+  webhookOccurredAt?: Date
   source?: string
 }
 
@@ -50,6 +51,34 @@ export type ChangeOrganizationPlanResult =
     }
   | {
       action: "unchanged"
+      plan: BillingPlan
+    }
+
+export type CancelOrganizationSubscriptionResult =
+  | {
+      action: "scheduled"
+      plan: BillingPlan
+    }
+  | {
+      action: "already_scheduled"
+      plan: BillingPlan
+    }
+  | {
+      action: "not_found"
+      plan: BillingPlan
+    }
+
+export type UncancelOrganizationSubscriptionResult =
+  | {
+      action: "resumed"
+      plan: BillingPlan
+    }
+  | {
+      action: "already_active"
+      plan: BillingPlan
+    }
+  | {
+      action: "not_found"
       plan: BillingPlan
     }
 
