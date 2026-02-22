@@ -2,9 +2,6 @@
   "name": "@crikket/bug-reports",
   "type": "module",
   "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
     "./*": {
       "default": "./src/*.ts"
     }
