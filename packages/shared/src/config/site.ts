@@ -6,4 +6,7 @@ export const siteConfig = {
   description:
     "Modern instant bug reporting platform. An open-source alternative to jam.dev and marker.io.",
   url: env.NEXT_PUBLIC_APP_URL,
+  links: {
+    github: "https://github.com/redpangilinan/crikket",
+  },
 }

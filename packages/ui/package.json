@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./components/*": "./src/components/*.tsx",
+    "./components/magicui/*": "./src/components/magicui/*.tsx",
     "./lib/*": "./src/lib/*.ts",
     "./hooks/*": "./src/hooks/*.ts",
     "./types/*": "./src/types/*.ts",
@@ -27,6 +28,7 @@
     "cmdk": "catalog:",
     "date-fns": "catalog:",
     "lucide-react": "catalog:",
+    "motion": "catalog:",
     "nanoid": "catalog:",
     "next-themes": "catalog:",
     "nuqs": "catalog:",
