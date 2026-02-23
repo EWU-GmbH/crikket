@@ -22,7 +22,7 @@ export const siteConfig = {
     locale: "en_US",
     openGraphType: "website" as const,
     twitterCard: "summary_large_image" as const,
-    defaultOgImage: "/favicon/favicon.svg",
+    defaultOgImage: "/og.png",
   },
   author: {
     name: "redpangilinan",
