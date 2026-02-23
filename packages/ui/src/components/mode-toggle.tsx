@@ -2,6 +2,7 @@
 
 import { cn } from "@crikket/ui/lib/utils"
 import { Moon, Sun } from "lucide-react"
+import { useTheme } from "next-themes"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { Button } from "./ui/button"
@@ -17,34 +18,29 @@ export const ModeToggle = ({
 }: ModeToggleProps) => {
   const [isDark, setIsDark] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const { resolvedTheme, setTheme } = useTheme()
 
   useEffect(() => {
-    const updateTheme = () => {
-      setIsDark(document.documentElement.classList.contains("dark"))
-    }
-
-    updateTheme()
-
-    const observer = new MutationObserver(updateTheme)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    })
-
-    return () => observer.disconnect()
-  }, [])
+    setIsDark(resolvedTheme === "dark")
+  }, [resolvedTheme])
 
   const toggleTheme = useCallback(async () => {
     if (!buttonRef.current) return
+    const newTheme = isDark ? "light" : "dark"
 
-    await document.startViewTransition(() => {
+    if (document.startViewTransition) {
+      await document.startViewTransition(() => {
+        flushSync(() => {
+          setTheme(newTheme)
+          setIsDark(newTheme === "dark")
+        })
+      }).ready
+    } else {
       flushSync(() => {
-        const newTheme = !isDark
-        setIsDark(newTheme)
-        document.documentElement.classList.toggle("dark")
-        localStorage.setItem("theme", newTheme ? "dark" : "light")
+        setTheme(newTheme)
+        setIsDark(newTheme === "dark")
       })
-    }).ready
+    }
 
     const { top, left, width, height } =
       buttonRef.current.getBoundingClientRect()
@@ -68,7 +64,7 @@ export const ModeToggle = ({
         pseudoElement: "::view-transition-new(root)",
       }
     )
-  }, [isDark, duration])
+  }, [duration, isDark, setTheme])
 
   return (
     <Button
