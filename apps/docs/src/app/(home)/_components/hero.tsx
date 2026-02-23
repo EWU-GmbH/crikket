@@ -47,7 +47,6 @@ export function Hero() {
         </div>
       </section>
 
-      {/* Video Presentation Section */}
       <section className="mx-auto w-full max-w-[1400px]">
         <HeroDemo />
       </section>
