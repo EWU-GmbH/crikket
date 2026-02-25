@@ -67,11 +67,7 @@ export function SiteHeader() {
                 {item.title === "Documentation" ? "Docs" : item.title}
               </Link>
             ))}
-            <Link
-              href={siteConfig.links.github}
-              rel="noreferrer"
-              target="_blank"
-            >
+            <Link href={siteConfig.links.repo} rel="noreferrer" target="_blank">
               <div className="inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                 <Github className="h-4 w-4" />
                 <span className="sr-only">GitHub</span>

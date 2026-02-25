@@ -24,13 +24,12 @@ export function PricingSection() {
 
   return (
     <section className="flex w-full flex-col items-center space-y-12">
-      <div className="flex flex-col items-center space-y-4 px-4 text-center sm:px-0">
-        <h2 className="font-bold text-4xl tracking-tight sm:text-5xl">
-          Pricing that scales with you
+      <div className="flex flex-col items-center space-y-3 px-4 text-center sm:px-0">
+        <h2 className="font-bold text-3xl tracking-tight sm:text-4xl">
+          Pricing
         </h2>
-        <p className="max-w-xl text-lg text-muted-foreground sm:text-xl">
-          Start with a free workspace, then upgrade to unlock bug report
-          submissions and team collaboration.
+        <p className="max-w-2xl text-balance text-base text-muted-foreground sm:text-lg">
+          Choose a plan that fits your team and start shipping bug fixes faster.
         </p>
 
         <div className="relative mt-6 inline-flex rounded-full border border-border p-1">
