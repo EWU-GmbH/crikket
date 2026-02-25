@@ -1,8 +1,9 @@
 #!/bin/sh
-bun test
 
 # Exit on any error
 set -e
+
+bun test
 
 # Check if there are any staged files
 if [ -z "$(git diff --cached --name-only)" ]; then
@@ -19,15 +20,20 @@ PARTIALLY_STAGED=$(git diff --name-only)
 
 # Stash unstaged changes to preserve working directory
 # --keep-index keeps staged changes in working tree
-git stash push --quiet --keep-index --message "pre-commit-stash" || true
-STASHED=$?
+STASHED=0
+if [ -n "$PARTIALLY_STAGED" ]; then
+  git stash push --quiet --keep-index --message "pre-commit-stash"
+  STASHED=1
+fi
 
 # Run formatter on the staged files
+set +e
 bun x ultracite fix
 FORMAT_EXIT_CODE=$?
+set -e
 
 # Restore working directory state
-if [ $STASHED -eq 0 ]; then
+if [ $STASHED -eq 1 ]; then
   # Re-stage the formatted files
   if [ -n "$STAGED_FILES" ]; then
     echo "$STAGED_FILES" | while IFS= read -r file; do
@@ -36,10 +42,14 @@ if [ $STASHED -eq 0 ]; then
       fi
     done
   fi
-  
-  # Restore unstaged changes
-  git stash pop --quiet || true
-  
+
+  # Restore unstaged changes; abort commit if this fails (e.g. merge conflict)
+  if ! git stash pop --quiet; then
+    echo "❌ Failed to restore unstaged changes cleanly."
+    echo "Resolve conflicts, then retry the commit."
+    exit 1
+  fi
+
   # Restore partial staging if files were partially staged
   if [ -n "$PARTIALLY_STAGED" ]; then
     for file in $PARTIALLY_STAGED; do
