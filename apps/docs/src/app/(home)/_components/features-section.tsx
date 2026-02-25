@@ -4,12 +4,12 @@ import {
   Check,
   Clock,
   Copy,
-  Filter,
+  FileText,
   LayoutGrid,
   Link2,
+  ListChecks,
   Search,
   Shield,
-  Tag,
   TriangleAlert,
   Users,
   Video,
@@ -49,23 +49,19 @@ function DashboardBackground() {
   const mockReports = [
     {
       title: "Login button unresponsive on mobile",
-      status: "Open",
-      tag: "auth",
+      artifact: "Video report",
     },
     {
       title: "Dashboard chart flickers on resize",
-      status: "In Progress",
-      tag: "ui",
+      artifact: "Screenshot report",
     },
     {
       title: "Export CSV missing data rows",
-      status: "Open",
-      tag: "data",
+      artifact: "Video report",
     },
     {
       title: "Notification bell not clearing",
-      status: "Resolved",
-      tag: "ux",
+      artifact: "Screenshot report",
     },
   ]
 
@@ -79,27 +75,24 @@ function DashboardBackground() {
               Search reports…
             </span>
           </div>
-          <div className="flex h-7 items-center rounded border bg-background px-2 text-[11px]">
-            Sort
-          </div>
           <div className="flex h-7 items-center gap-1 rounded border bg-background px-2 text-[11px]">
-            <Filter className="size-3" />
-            Filters
+            <LayoutGrid className="size-3" />
+            Recent
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
           <MiniStatChip
-            icon={<TriangleAlert className="size-3" />}
-            label="Open"
-            value={3}
+            icon={<Video className="size-3" />}
+            label="Videos"
+            value={2}
           />
           <MiniStatChip
-            icon={<Shield className="size-3" />}
-            label="Untriaged"
-            value={1}
+            icon={<Camera className="size-3" />}
+            label="Screenshots"
+            value={2}
           />
           <MiniStatChip
-            icon={<Tag className="size-3" />}
+            icon={<FileText className="size-3" />}
             label="Total"
             value={4}
           />
@@ -120,11 +113,7 @@ function DashboardBackground() {
                 {report.title}
               </p>
               <div className="flex flex-wrap gap-1">
-                <MiniChip>{report.status}</MiniChip>
-                <MiniChip>
-                  <Tag className="size-2.5" />
-                  {report.tag}
-                </MiniChip>
+                <MiniChip>{report.artifact}</MiniChip>
               </div>
             </div>
           </div>
@@ -182,7 +171,7 @@ function ShareBackground() {
 
         <div className="flex gap-2">
           <div className="flex h-8 flex-1 items-center overflow-hidden rounded border bg-muted/50 px-2 text-[11px] text-muted-foreground">
-            crikket.app/s/abc123xf
+            app.crikket.io/s/abc123xf
           </div>
           <div className="flex h-8 w-8 items-center justify-center rounded border bg-background">
             <Copy className="size-3.5" />
@@ -220,52 +209,36 @@ function ShareBackground() {
 }
 
 function TeamBackground() {
-  const members = [
-    {
-      name: "Alice Chen",
-      email: "alice@acme.co",
-      role: "Owner",
-      initials: "AC",
-    },
-    { name: "Bob Torres", email: "bob@acme.co", role: "Admin", initials: "BT" },
-    { name: "Cara Liu", email: "cara@acme.co", role: "Member", initials: "CL" },
+  const planStats = [
+    { label: "Plan", value: "Pro" },
+    { label: "Bug reports", value: "Unlimited" },
+    { label: "Seats", value: "8 / 15 used" },
   ]
-
-  const roleVariant: Record<string, string> = {
-    Owner: "bg-primary text-primary-foreground",
-    Admin: "bg-secondary text-secondary-foreground",
-    Member: "border bg-background",
-  }
 
   return (
     <div className="mask-[linear-gradient(to_top,transparent_10%,#000_100%)] absolute inset-0 flex flex-col gap-3 overflow-hidden p-4 transition-all duration-300 ease-out group-hover:scale-105">
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-4 py-2.5">
-          <p className="font-semibold text-sm">Team Members</p>
+          <p className="font-semibold text-sm">Workspace</p>
           <div className="flex h-7 items-center gap-1 rounded-lg border bg-background px-2.5 font-medium text-[11px]">
             <Users className="size-3" />
-            Invite
+            Team settings
           </div>
         </div>
         <div className="divide-y">
-          {members.map((member) => (
+          {planStats.map((item) => (
             <div
               className="flex items-center gap-3 px-4 py-2.5"
-              key={member.name}
+              key={item.label}
             >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px]">
-                {member.initials}
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+                <Check className="size-3.5 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-[12px]">{member.name}</p>
-                <p className="truncate text-[10px] text-muted-foreground">
-                  {member.email}
-                </p>
+                <p className="font-medium text-[12px]">{item.label}</p>
               </div>
-              <span
-                className={`rounded-md px-2 py-0.5 font-medium text-[10px] ${roleVariant[member.role]}`}
-              >
-                {member.role}
+              <span className="rounded-md border bg-background px-2 py-0.5 font-medium text-[10px]">
+                {item.value}
               </span>
             </div>
           ))}
@@ -278,12 +251,12 @@ function TeamBackground() {
         </p>
         <div className="flex items-center gap-3 opacity-60">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed bg-muted">
-            <span className="text-[10px] text-muted-foreground">?</span>
+            <Users className="size-3 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-[11px] text-muted-foreground">dan@acme.co</p>
+            <p className="text-[11px] text-muted-foreground">Studio upgrade</p>
             <p className="text-[10px] text-muted-foreground/60">
-              Invite expires in 6 days
+              Unlock unlimited team members
             </p>
           </div>
         </div>
@@ -292,74 +265,54 @@ function TeamBackground() {
   )
 }
 
-function TagsBackground() {
+function ReplayBackground() {
   return (
     <div className="mask-[linear-gradient(to_top,transparent_10%,#000_100%)] absolute inset-0 flex flex-col justify-center gap-3 overflow-hidden p-4 transition-all duration-300 ease-out group-hover:scale-105">
       <div className="space-y-2 rounded-xl border bg-card p-3 shadow-sm">
-        <p className="font-medium text-[11px] text-muted-foreground">
-          Priority
-        </p>
-        <div className="flex flex-wrap gap-1.5">
+        <p className="font-medium text-[11px] text-muted-foreground">Steps</p>
+        <div className="space-y-1.5">
           {[
-            {
-              label: "Critical",
-              color: "border-destructive/50 text-destructive bg-destructive/5",
-            },
-            {
-              label: "High",
-              color:
-                "border-orange-400/50 text-orange-600 bg-orange-50 dark:bg-orange-950/20",
-            },
-            {
-              label: "Medium",
-              color:
-                "border-yellow-400/50 text-yellow-600 bg-yellow-50 dark:bg-yellow-950/20",
-            },
-            {
-              label: "Low",
-              color: "border-border text-muted-foreground bg-muted/50",
-            },
-          ].map(({ label, color }) => (
-            <span
-              className={`rounded-md border px-2 py-0.5 font-medium text-[11px] ${color}`}
-              key={label}
-            >
-              {label}
-            </span>
+            "click • button.ring-sidebar-ring",
+            "navigation • window.pushState",
+            "click • #email",
+          ].map((step) => (
+            <div className="flex items-center gap-1.5 text-[11px]" key={step}>
+              <ListChecks className="size-3 text-muted-foreground" />
+              <span className="text-muted-foreground">{step}</span>
+            </div>
           ))}
         </div>
       </div>
 
       <div className="space-y-2 rounded-xl border bg-card p-3 shadow-sm">
-        <p className="font-medium text-[11px] text-muted-foreground">Status</p>
-        <div className="flex flex-wrap gap-1.5">
-          {["Open", "In Progress", "Resolved", "Closed", "Won't Fix"].map(
-            (s) => (
-              <span
-                className="rounded-md border bg-background px-2 py-0.5 text-[11px]"
-                key={s}
-              >
-                {s}
-              </span>
-            )
-          )}
+        <p className="font-medium text-[11px] text-muted-foreground">Logs</p>
+        <div className="space-y-1.5">
+          {[
+            'Error: request failed for "createCheckoutSession"',
+            "warn: retrying fetch (attempt 2)",
+          ].map((log) => (
+            <div className="flex items-center gap-1.5 text-[11px]" key={log}>
+              <TriangleAlert className="size-3 text-muted-foreground" />
+              <span className="line-clamp-1 text-muted-foreground">{log}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       <div className="space-y-2 rounded-xl border bg-card p-3 shadow-sm">
-        <p className="font-medium text-[11px] text-muted-foreground">Tags</p>
-        <div className="flex flex-wrap gap-1.5">
-          {["auth", "ui", "api", "data", "performance", "mobile", "ux"].map(
-            (tag) => (
-              <span
-                className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-0.5 text-[11px]"
-                key={tag}
-              >
-                <Tag className="size-2.5" />
-                {tag}
-              </span>
-            )
-          )}
+        <p className="font-medium text-[11px] text-muted-foreground">
+          Network Requests
+        </p>
+        <div className="space-y-1.5">
+          {["POST /api/billing 500", "GET /api/user 200"].map((request) => (
+            <div
+              className="flex items-center gap-1.5 text-[11px]"
+              key={request}
+            >
+              <Link2 className="size-3 text-muted-foreground" />
+              <span className="text-muted-foreground">{request}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -371,11 +324,11 @@ function TagsBackground() {
 const features = [
   {
     Icon: LayoutGrid,
-    name: "Unified Bug Dashboard",
+    name: "Bug Report Feed",
     description:
-      "See every bug in one place. Filter by status, priority, and visibility so your team can focus fast.",
+      "Keep every bug report in one place for triage and reproduction. Crikket focuses on report context to help your team resolve issues faster.",
     href: "#",
-    cta: "See the dashboard",
+    cta: "Review reports",
     background: <DashboardBackground />,
     className: "col-span-3 md:col-span-2",
   },
@@ -383,39 +336,40 @@ const features = [
     Icon: Video,
     name: "One-Click Capture",
     description:
-      "Record a bug in seconds with video or screenshot. Logs and network requests are captured automatically.",
+      "Capture issues with video or screenshot in seconds, directly from the browser.",
     href: "#",
-    cta: "Try it now",
+    cta: "Capture a report",
     background: <CaptureBackground />,
     className: "col-span-3 md:col-span-1",
   },
   {
-    Icon: Link2,
-    name: "Instant Sharing",
-    description: "Share any report with one link. Set it to public or private.",
+    Icon: FileText,
+    name: "Replay Context Included",
+    description:
+      "Each report includes reproduction steps, console logs, and network requests to speed up debugging.",
     href: "#",
-    cta: "Learn more",
+    cta: "View report context",
+    background: <ReplayBackground />,
+    className: "col-span-3 md:col-span-1",
+  },
+  {
+    Icon: Link2,
+    name: "Share Links with Access Control",
+    description:
+      "Share any report with a single link and choose public or private visibility per report.",
+    href: "#",
+    cta: "Share reports",
     background: <ShareBackground />,
     className: "col-span-3 md:col-span-1",
   },
   {
     Icon: Users,
-    name: "Team Collaboration",
+    name: "Workspaces for Teams",
     description:
-      "Invite teammates and control access by role. Keep owners, admins, and members in sync.",
+      "Invite teammates into shared workspaces, manage access, and collaborate on reports.",
     href: "#",
-    cta: "Explore teams",
+    cta: "Explore plans",
     background: <TeamBackground />,
-    className: "col-span-3 md:col-span-1",
-  },
-  {
-    Icon: Tag,
-    name: "Priority & Tags",
-    description:
-      "Add priority, status, and tags to every bug. Keep triage simple and clear.",
-    href: "#",
-    cta: "Learn more",
-    background: <TagsBackground />,
     className: "col-span-3 md:col-span-1",
   },
 ]
@@ -423,13 +377,13 @@ const features = [
 export function FeaturesSection() {
   return (
     <section className="w-full space-y-6 px-4 text-left sm:px-0">
-      <div className="space-y-2 text-center">
+      <div className="space-y-3 text-center">
         <h2 className="font-bold text-3xl tracking-tight sm:text-4xl">
-          Everything your team needs
+          What Crikket actually does
         </h2>
-        <p className="mx-auto max-w-2xl text-balance text-muted-foreground">
-          From one-click capture to team workflows. Crikket gives you a complete
-          bug reporting toolkit out of the box.
+        <p className="mx-auto max-w-2xl text-balance text-base text-muted-foreground sm:text-lg">
+          Capture the bug, attach technical context automatically, and share it
+          with the right people fast.
         </p>
       </div>
 

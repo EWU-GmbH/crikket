@@ -13,7 +13,7 @@ export function Hero() {
       <section className="flex max-w-4xl flex-col items-center space-y-8 px-4 sm:px-0">
         <Link
           className="inline-flex cursor-pointer items-center rounded-full border border-border bg-background/50 px-4 py-1.5 font-medium text-muted-foreground text-sm shadow-sm ring-1 ring-border/50 backdrop-blur-sm transition-colors hover:bg-muted/50"
-          href={siteConfig.links.github}
+          href={siteConfig.links.repo}
           rel="noreferrer"
           target="_blank"
         >
