@@ -1,68 +1,82 @@
 import { CAPTURE_CORE_VERSION } from "@crikket/capture-core"
+import { CaptureSdkRuntime } from "./runtime/capture-runtime"
+import type {
+  CaptureInitOptions,
+  CaptureRuntimeController,
+  CaptureSubmissionDraft,
+  CaptureSubmitResult,
+} from "./types"
 
-const DEFAULT_ENDPOINT = "https://app.crikket.com"
-const TRAILING_SLASHES_REGEX = /\/+$/
+export { defaultSubmitTransport } from "./transport/default-submit-transport"
+export type {
+  CaptureDebuggerSummary,
+  CaptureInitOptions,
+  CapturePriority,
+  CaptureRuntimeConfig,
+  CaptureRuntimeController,
+  CaptureSubmissionDraft,
+  CaptureSubmitRequest,
+  CaptureSubmitResult,
+  CaptureSubmitTransport,
+  CaptureType,
+} from "./types"
 
-export interface CaptureInitOptions {
-  publicKey: string
-  endpoint?: string
+const runtime = new CaptureSdkRuntime()
+
+export function init(options: CaptureInitOptions): CaptureRuntimeController {
+  return runtime.init(options)
 }
 
-export interface CaptureRuntimeConfig {
-  publicKey: string
-  endpoint: string
+export function mount(target?: HTMLElement): void {
+  runtime.mount(target)
 }
 
-let runtimeConfig: CaptureRuntimeConfig | null = null
-
-function normalizePublicKey(value: string): string {
-  const normalized = value.trim()
-  if (!normalized) {
-    throw new Error(
-      "@crikket/capture requires a non-empty publicKey in capture.init({ publicKey })"
-    )
-  }
-
-  return normalized
+export function unmount(): void {
+  runtime.unmount()
 }
 
-function normalizeEndpoint(value?: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return DEFAULT_ENDPOINT
-  }
-
-  return value.trim().replace(TRAILING_SLASHES_REGEX, "")
+export function open(): void {
+  runtime.open()
 }
 
-export function init(options: CaptureInitOptions): CaptureRuntimeConfig {
-  runtimeConfig = {
-    publicKey: normalizePublicKey(options.publicKey),
-    endpoint: normalizeEndpoint(options.endpoint),
-  }
+export function close(): void {
+  runtime.close()
+}
 
-  return runtimeConfig
+export function destroy(): void {
+  runtime.destroy()
+}
+
+export function startRecording(): Promise<{ startedAt: number }> {
+  return runtime.startRecording()
+}
+
+export function stopRecording(): Promise<Blob | null> {
+  return runtime.stopRecording()
+}
+
+export function takeScreenshot(): Promise<Blob | null> {
+  return runtime.takeScreenshot()
+}
+
+export function submit(
+  draft: CaptureSubmissionDraft
+): Promise<CaptureSubmitResult> {
+  return runtime.submit(draft)
+}
+
+export function reset(): void {
+  runtime.reset()
 }
 
 export function isInitialized(): boolean {
-  return runtimeConfig !== null
+  return runtime.isInitialized()
 }
 
-export function getConfig(): CaptureRuntimeConfig | null {
-  return runtimeConfig
+export function getConfig() {
+  return runtime.getConfig()
 }
 
 export function getCoreVersion(): string {
   return CAPTURE_CORE_VERSION
-}
-
-export function open(): never {
-  if (!runtimeConfig) {
-    throw new Error(
-      "Capture SDK is not initialized. Call capture.init({ publicKey }) first."
-    )
-  }
-
-  throw new Error(
-    "Capture UI is not implemented yet. This package currently provides Phase A scaffolding."
-  )
 }

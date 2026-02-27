@@ -6,21 +6,46 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    },
+    "./react": {
+      "types": "./react.d.ts",
+      "default": "./react.js"
     }
   },
   "files": [
     "dist",
+    "react.d.ts",
+    "react.js",
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "bun run ./scripts/build.ts",
     "check-types": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@crikket/capture-core": "workspace:*"
+    "@base-ui/react": "catalog:",
+    "@crikket/shared": "workspace:*",
+    "@crikket/ui": "workspace:*",
+    "@tanstack/react-form": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@crikket/capture-core": "workspace:*",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
     "@crikket/config": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "postcss": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:",
     "typescript": "catalog:"
   }
 }
