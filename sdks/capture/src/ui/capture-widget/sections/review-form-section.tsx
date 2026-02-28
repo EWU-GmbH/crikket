@@ -11,7 +11,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "../components/sdk-select"
 import { SummaryStat } from "../components/summary-stat"
 import { usePortalContainer } from "../context/portal-container-context"
@@ -36,6 +35,9 @@ export function ReviewFormSection({
   onSubmit,
 }: ReviewFormSectionProps): React.JSX.Element {
   const portalContainer = usePortalContainer()
+  const priorityLabelByValue = new Map(
+    capturePriorityOptions.map((priority) => [priority.value, priority.label])
+  )
   const form = useForm({
     defaultValues: state.reviewDraft,
     validators: {
@@ -141,6 +143,8 @@ export function ReviewFormSection({
           {(field) => {
             const isInvalid =
               field.state.meta.isTouched && field.state.meta.errors.length > 0
+            const selectedPriorityLabel =
+              priorityLabelByValue.get(field.state.value) ?? "Select priority"
 
             return (
               <Field data-invalid={isInvalid}>
@@ -162,7 +166,9 @@ export function ReviewFormSection({
                     className="w-full"
                     id={`${formKey}-priority`}
                   >
-                    <SelectValue />
+                    <span className="flex flex-1 text-left">
+                      {selectedPriorityLabel}
+                    </span>
                   </SelectTrigger>
                   <SelectContent container={portalContainer}>
                     {capturePriorityOptions.map((priority) => (

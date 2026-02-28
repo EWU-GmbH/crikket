@@ -1,12 +1,10 @@
 import { createContext, useContext } from "react"
 
-const PortalContainerContext = createContext<HTMLElement | ShadowRoot | null>(
-  null
-)
+const PortalContainerContext = createContext<HTMLElement | null>(null)
 
 export function PortalContainerProvider(props: {
   children: React.ReactNode
-  value: HTMLElement | ShadowRoot | null
+  value: HTMLElement | null
 }): React.JSX.Element {
   return (
     <PortalContainerContext.Provider value={props.value}>
@@ -15,6 +13,6 @@ export function PortalContainerProvider(props: {
   )
 }
 
-export function usePortalContainer(): HTMLElement | ShadowRoot | null {
+export function usePortalContainer(): HTMLElement | null {
   return useContext(PortalContainerContext)
 }

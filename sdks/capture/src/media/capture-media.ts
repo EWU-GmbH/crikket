@@ -8,6 +8,9 @@ interface CaptureDisplayMediaStreamOptions extends DisplayMediaStreamOptions {
   systemAudio?: "exclude" | "include"
 }
 
+const CAPTURE_FRAME_SETTLE_DELAY_MS = 120
+const CAPTURE_FRAME_SETTLE_COUNT = 2
+
 function getDisplayVideoConstraints(): MediaTrackConstraints {
   return {
     frameRate: 30,
@@ -69,6 +72,7 @@ function assertBrowserTabSurface(stream: MediaStream): void {
 export async function captureScreenshot(): Promise<Blob> {
   const stream = await requestDisplayStream(false)
   assertBrowserTabSurface(stream)
+  const video = document.createElement("video")
 
   try {
     const track = stream.getVideoTracks()[0]
@@ -76,13 +80,7 @@ export async function captureScreenshot(): Promise<Blob> {
       throw new Error("No video track available for screenshot capture.")
     }
 
-    const video = document.createElement("video")
-    video.srcObject = stream
-    video.muted = true
-    video.playsInline = true
-
-    await waitForVideoMetadata(video)
-    await video.play()
+    await prepareCaptureVideo(video, stream)
 
     const width = video.videoWidth
     const height = video.videoHeight
@@ -102,6 +100,7 @@ export async function captureScreenshot(): Promise<Blob> {
     context.drawImage(video, 0, 0, width, height)
     return canvasToBlob(canvas, "image/png")
   } finally {
+    releaseCaptureVideo(video)
     for (const currentTrack of stream.getTracks()) {
       currentTrack.stop()
     }
@@ -111,6 +110,9 @@ export async function captureScreenshot(): Promise<Blob> {
 export async function startDisplayRecording(): Promise<RecordingController> {
   const stream = await requestDisplayStream(true)
   assertBrowserTabSurface(stream)
+  const warmupVideo = document.createElement("video")
+  await prepareCaptureVideo(warmupVideo, stream)
+  releaseCaptureVideo(warmupVideo)
   const mimeType = resolveRecordingMimeType()
   const recorder =
     mimeType.length > 0
@@ -237,6 +239,91 @@ function waitForVideoMetadata(video: HTMLVideoElement): Promise<void> {
     video.addEventListener("error", onError, {
       once: true,
     })
+  })
+}
+
+async function prepareCaptureVideo(
+  video: HTMLVideoElement,
+  stream: MediaStream
+): Promise<void> {
+  video.srcObject = stream
+  video.muted = true
+  video.playsInline = true
+
+  await waitForTrackReadable(stream.getVideoTracks()[0])
+  await waitForVideoMetadata(video)
+  await video.play()
+  await waitForSettledVideoFrames(video)
+}
+
+function releaseCaptureVideo(video: HTMLVideoElement): void {
+  video.pause()
+  video.srcObject = null
+}
+
+function waitForTrackReadable(
+  track: MediaStreamTrack | undefined
+): Promise<void> {
+  if (!track) {
+    throw new Error("No video track available for capture.")
+  }
+
+  if (!track.muted) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    const timeout = window.setTimeout(() => {
+      cleanup()
+      resolve()
+    }, 1000)
+
+    const onUnmute = () => {
+      cleanup()
+      resolve()
+    }
+
+    const cleanup = () => {
+      window.clearTimeout(timeout)
+      track.removeEventListener("unmute", onUnmute)
+    }
+
+    track.addEventListener("unmute", onUnmute, {
+      once: true,
+    })
+  })
+}
+
+async function waitForSettledVideoFrames(
+  video: HTMLVideoElement,
+  frameCount = CAPTURE_FRAME_SETTLE_COUNT
+): Promise<void> {
+  for (let index = 0; index < frameCount; index += 1) {
+    await waitForNextVideoFrame(video)
+  }
+
+  await wait(CAPTURE_FRAME_SETTLE_DELAY_MS)
+}
+
+function waitForNextVideoFrame(video: HTMLVideoElement): Promise<void> {
+  if ("requestVideoFrameCallback" in video) {
+    return new Promise((resolve) => {
+      video.requestVideoFrameCallback(() => {
+        resolve()
+      })
+    })
+  }
+
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      resolve()
+    })
+  })
+}
+
+function wait(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs)
   })
 }
 
