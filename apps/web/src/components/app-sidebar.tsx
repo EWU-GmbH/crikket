@@ -60,6 +60,10 @@ const navMain = [
         url: "/settings/organization" as const,
       },
       {
+        title: "Public Keys",
+        url: "/settings/keys" as const,
+      },
+      {
         title: "Billing",
         url: "/settings/billing" as const,
       },

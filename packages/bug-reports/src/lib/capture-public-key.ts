@@ -2,7 +2,7 @@ import { db } from "@crikket/db"
 import { capturePublicKey } from "@crikket/db/schema/bug-report"
 import { env } from "@crikket/env/server"
 import { retryOnUniqueViolation } from "@crikket/shared/lib/server/retry-on-unique-violation"
-import { and, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
 const LIVE_KEY_PREFIX = "pk_live"
@@ -41,6 +41,13 @@ type EnsureCapturePublicKeyForSiteInput = {
   label?: string | null
   organizationId: string
   origin: string
+}
+
+type CreateCapturePublicKeyInput = {
+  allowedOrigins: string[]
+  createdBy?: string | null
+  label: string
+  organizationId: string
 }
 
 function getCapturePublicKeyPrefix(): string {
@@ -85,6 +92,10 @@ function normalizeCaptureKeyLabel(
   return trimmed ? trimmed.slice(0, 80) : buildDefaultSiteLabel(origin)
 }
 
+function normalizeCaptureKeyLabelValue(value: string): string {
+  return value.trim().slice(0, 80)
+}
+
 export function normalizeCaptureOrigin(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) {
@@ -117,6 +128,16 @@ export function normalizeCaptureOrigins(origins: Iterable<string>): string[] {
   }
 
   return Array.from(normalizedOrigins).sort()
+}
+
+function requireCaptureOrigins(origins: Iterable<string>): string[] {
+  const normalizedOrigins = normalizeCaptureOrigins(origins)
+
+  if (normalizedOrigins.length === 0) {
+    throw new Error("At least one valid HTTP(S) origin is required.")
+  }
+
+  return normalizedOrigins
 }
 
 function toCapturePublicKeyRecord(
@@ -175,6 +196,20 @@ async function findActiveCapturePublicKeyForOrigin(input: {
   return matchingRecord ? toCapturePublicKeyRecord(matchingRecord) : null
 }
 
+export async function listCapturePublicKeys(input: {
+  organizationId: string
+}): Promise<CapturePublicKeyRecord[]> {
+  const records = await db.query.capturePublicKey.findMany({
+    where: eq(capturePublicKey.organizationId, input.organizationId),
+    orderBy: [
+      desc(capturePublicKey.updatedAt),
+      desc(capturePublicKey.createdAt),
+    ],
+  })
+
+  return records.map(toCapturePublicKeyRecord)
+}
+
 export async function ensureCapturePublicKeyForSite(
   input: EnsureCapturePublicKeyForSiteInput
 ): Promise<CapturePublicKeyRecord> {
@@ -219,6 +254,41 @@ export async function ensureCapturePublicKeyForSite(
   })
 }
 
+export function createCapturePublicKey(
+  input: CreateCapturePublicKeyInput
+): Promise<CapturePublicKeyRecord> {
+  const allowedOrigins = requireCaptureOrigins(input.allowedOrigins)
+  const label = normalizeCaptureKeyLabelValue(input.label)
+
+  if (!label) {
+    throw new Error("Capture key label is required.")
+  }
+
+  return retryOnUniqueViolation(async () => {
+    const [createdRecord] = await db
+      .insert(capturePublicKey)
+      .values({
+        allowedOrigins,
+        createdBy: input.createdBy ?? null,
+        environment: getDefaultCaptureEnvironment(),
+        id: nanoid(16),
+        key: buildCapturePublicKey(),
+        label,
+        organizationId: input.organizationId,
+        revokedAt: null,
+        rotatedAt: null,
+        status: CAPTURE_KEY_STATUS.active,
+      })
+      .returning()
+
+    if (!createdRecord) {
+      throw new Error("Failed to create capture public key.")
+    }
+
+    return toCapturePublicKeyRecord(createdRecord)
+  })
+}
+
 export async function resolveCapturePublicKey(
   publicKey: string
 ): Promise<CapturePublicKeyRecord | null> {
@@ -232,6 +302,59 @@ export async function resolveCapturePublicKey(
   })
 
   return record ? toCapturePublicKeyRecord(record) : null
+}
+
+export async function updateCapturePublicKeyOrigins(input: {
+  allowedOrigins: string[]
+  keyId: string
+  organizationId: string
+}): Promise<CapturePublicKeyRecord | null> {
+  const allowedOrigins = requireCaptureOrigins(input.allowedOrigins)
+
+  const [updatedRecord] = await db
+    .update(capturePublicKey)
+    .set({
+      allowedOrigins,
+    })
+    .where(
+      and(
+        eq(capturePublicKey.id, input.keyId),
+        eq(capturePublicKey.organizationId, input.organizationId)
+      )
+    )
+    .returning()
+
+  return updatedRecord ? toCapturePublicKeyRecord(updatedRecord) : null
+}
+
+export async function updateCapturePublicKeyDetails(input: {
+  allowedOrigins: string[]
+  keyId: string
+  label: string
+  organizationId: string
+}): Promise<CapturePublicKeyRecord | null> {
+  const allowedOrigins = requireCaptureOrigins(input.allowedOrigins)
+  const label = normalizeCaptureKeyLabelValue(input.label)
+
+  if (!label) {
+    throw new Error("Capture key label is required.")
+  }
+
+  const [updatedRecord] = await db
+    .update(capturePublicKey)
+    .set({
+      allowedOrigins,
+      label,
+    })
+    .where(
+      and(
+        eq(capturePublicKey.id, input.keyId),
+        eq(capturePublicKey.organizationId, input.organizationId)
+      )
+    )
+    .returning()
+
+  return updatedRecord ? toCapturePublicKeyRecord(updatedRecord) : null
 }
 
 export async function revokeCapturePublicKey(input: {
@@ -255,6 +378,36 @@ export async function revokeCapturePublicKey(input: {
     })
 
   return Boolean(updatedRecord)
+}
+
+export async function deleteCapturePublicKey(input: {
+  keyId: string
+  organizationId: string
+}): Promise<boolean> {
+  const existingRecord = await db.query.capturePublicKey.findFirst({
+    where: and(
+      eq(capturePublicKey.id, input.keyId),
+      eq(capturePublicKey.organizationId, input.organizationId)
+    ),
+    columns: {
+      id: true,
+    },
+  })
+
+  if (!existingRecord) {
+    return false
+  }
+
+  await db
+    .delete(capturePublicKey)
+    .where(
+      and(
+        eq(capturePublicKey.id, input.keyId),
+        eq(capturePublicKey.organizationId, input.organizationId)
+      )
+    )
+
+  return true
 }
 
 export function rotateCapturePublicKey(input: {

@@ -11,7 +11,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app"
 import { queryClient } from "@/utils/orpc"
 
 // hardcoded for testing purposes
-const CAPTURE_TEST_PUBLIC_KEY = "pk_test_JrK-KVtALelwlqS_Rd4Qo-Gz"
+const CAPTURE_TEST_PUBLIC_KEY = "pk_test_rV2A1mTRXPAqOVGw0-bQFoly"
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
