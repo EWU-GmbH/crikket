@@ -18,8 +18,12 @@ export function mountCaptureUi(
   })
   const styleElement = document.createElement("style")
   styleElement.textContent = CAPTURE_WIDGET_CSS_PLACEHOLDER
+  const portalContainer = document.createElement("div")
+  portalContainer.style.position = "relative"
+  portalContainer.style.zIndex = String(zIndex + 3)
   const container = document.createElement("div")
   shadowRoot.append(styleElement)
+  shadowRoot.append(portalContainer)
   shadowRoot.append(container)
   target.append(hostElement)
 
@@ -29,7 +33,7 @@ export function mountCaptureUi(
 
   reactRoot.render(
     <QueryClientProvider client={queryClient}>
-      <PortalContainerProvider value={shadowRoot}>
+      <PortalContainerProvider value={portalContainer}>
         <CaptureWidgetRoot
           callbacks={callbacks}
           store={store}
