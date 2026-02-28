@@ -41,7 +41,7 @@ init({
 })
 ```
 
-If you are using Crikket Cloud, `host` defaults to `https://app.crikket.com`.
+If you are using Crikket Cloud, `host` defaults to `https://api.crikket.io`.
 If you are self-hosting Crikket, pass your own app origin:
 
 ```ts
