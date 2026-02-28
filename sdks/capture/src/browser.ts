@@ -1,8 +1,43 @@
-import * as capture from "./index"
+import type { CaptureGlobalApi } from "./global-api"
+import {
+  close,
+  defaultSubmitTransport,
+  destroy,
+  getConfig,
+  getCoreVersion,
+  init,
+  isInitialized,
+  mount,
+  open,
+  reset,
+  startRecording,
+  stopRecording,
+  submit,
+  takeScreenshot,
+  unmount,
+} from "./index"
+
+const capture = {
+  close,
+  defaultSubmitTransport,
+  destroy,
+  getConfig,
+  getCoreVersion,
+  init,
+  isInitialized,
+  mount,
+  open,
+  reset,
+  startRecording,
+  stopRecording,
+  submit,
+  takeScreenshot,
+  unmount,
+} satisfies CaptureGlobalApi
 
 declare global {
   interface Window {
-    CrikketCapture?: typeof capture
+    CrikketCapture?: CaptureGlobalApi
   }
 }
 

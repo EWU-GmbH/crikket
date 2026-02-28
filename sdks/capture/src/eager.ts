@@ -1,5 +1,5 @@
 import { CAPTURE_CORE_VERSION } from "@crikket/capture-core"
-import { LazyCaptureSdkRuntime } from "./runtime/lazy-capture-runtime"
+import { CaptureSdkRuntime } from "./runtime/capture-runtime"
 import type {
   CaptureInitOptions,
   CaptureRuntimeController,
@@ -21,7 +21,7 @@ export type {
   CaptureType,
 } from "./types"
 
-const runtime = new LazyCaptureSdkRuntime()
+const runtime = new CaptureSdkRuntime()
 
 export function init(options: CaptureInitOptions): CaptureRuntimeController {
   return runtime.init(options)

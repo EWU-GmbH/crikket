@@ -1,10 +1,9 @@
 import { CAPTURE_CORE_VERSION } from "@crikket/capture-core"
-import { SCREENSHOT_LOOKBACK_MS } from "../constants"
-import { DebuggerCollector } from "../debugger/debugger-collector"
+import { LazyDebuggerCollector } from "../debugger/lazy-debugger-collector"
 import {
   captureScreenshot,
   startDisplayRecording,
-} from "../media/capture-media"
+} from "../media/lazy-capture-media"
 import { defaultSubmitTransport } from "../transport/default-submit-transport"
 import type {
   CapturedMedia,
@@ -33,7 +32,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
   private submitTransport: CaptureSubmitTransport = defaultSubmitTransport
   private mountedTarget: HTMLElement | null = null
   private mountedUi: MountedCaptureUi | null = null
-  private readonly debuggerCollector = new DebuggerCollector()
+  private readonly debuggerCollector = new LazyDebuggerCollector()
   private activeRecording: RecordingController | null = null
   private currentMedia: CapturedMedia | null = null
   private currentReview: ReviewSnapshot | null = null
@@ -48,7 +47,6 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
 
     this.runtimeConfig = config
     this.submitTransport = options.submitTransport ?? defaultSubmitTransport
-    this.debuggerCollector.install()
 
     if (options.autoMount ?? true) {
       this.mount(options.mountTarget)
@@ -74,7 +72,6 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
     }
 
     const mountTarget = target ?? document.body
-    this.debuggerCollector.install()
     this.mountedUi = mountCaptureUi(mountTarget, config.zIndex, {
       onClose: () => {
         this.close()
@@ -119,6 +116,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       this.mount()
     }
 
+    this.debuggerCollector.prefetch().catch(() => undefined)
     this.mountedUi?.store.openChooser()
   }
 
@@ -138,7 +136,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
     this.getRuntimeConfig()
     this.ensureBrowserContext()
     this.abortActiveRecording()
-    this.debuggerCollector.startSession("video")
+    await this.debuggerCollector.startRecordingSession()
 
     try {
       await this.hideUiForCapture()
@@ -146,13 +144,13 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       this.debuggerCollector.markRecordingStarted(controller.startedAt)
       this.activeRecording = controller
       controller.finished
-        .then((result) => {
+        .then(async (result) => {
           if (this.activeRecording !== controller) {
             return
           }
 
           this.activeRecording = null
-          this.finalizeCapturedMedia({
+          await this.finalizeCapturedMedia({
             blob: result.blob,
             captureType: "video",
             durationMs: result.durationMs,
@@ -179,7 +177,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
     this.activeRecording = null
 
     const result = await recording.stop()
-    this.finalizeCapturedMedia({
+    await this.finalizeCapturedMedia({
       blob: result.blob,
       captureType: "video",
       durationMs: result.durationMs,
@@ -191,7 +189,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
   async takeScreenshot(): Promise<Blob | null> {
     this.getRuntimeConfig()
     this.ensureBrowserContext()
-    this.debuggerCollector.startSession("screenshot", SCREENSHOT_LOOKBACK_MS)
+    await this.debuggerCollector.startScreenshotSession()
 
     let blob: Blob
     try {
@@ -202,7 +200,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       this.debuggerCollector.clearSession()
       throw error
     }
-    this.finalizeCapturedMedia({
+    await this.finalizeCapturedMedia({
       blob,
       captureType: "screenshot",
       durationMs: null,

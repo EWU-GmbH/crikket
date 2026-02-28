@@ -352,7 +352,6 @@
         "@types/react-dom": "catalog:",
         "postcss": "catalog:",
         "tailwindcss": "catalog:",
-        "tw-animate-css": "catalog:",
         "typescript": "catalog:",
       },
     },
