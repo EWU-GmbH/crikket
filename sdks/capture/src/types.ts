@@ -9,8 +9,8 @@ export type CaptureType = "video" | "screenshot"
 export type CapturePriority = Priority
 
 export interface CaptureInitOptions {
-  publicKey: string
-  endpoint?: string
+  key: string
+  host?: string
   autoMount?: boolean
   mountTarget?: HTMLElement
   submitPath?: string
@@ -19,8 +19,8 @@ export interface CaptureInitOptions {
 }
 
 export interface CaptureRuntimeConfig {
-  publicKey: string
-  endpoint: string
+  key: string
+  host: string
   submitPath: string
   zIndex: number
 }

@@ -6,25 +6,24 @@ import {
 } from "./constants"
 import type { BridgePayload } from "./types"
 
-export function normalizePublicKey(value: string): string {
+export function normalizeKey(value: string): string {
   const normalized = value.trim()
   if (!normalized) {
     throw new Error(
-      "@crikket/capture requires a non-empty publicKey in capture.init({ publicKey })"
+      "@crikket/capture requires a non-empty key in capture.init({ key })"
     )
   }
 
   return normalized
 }
 
-export function normalizeEndpoint(value?: string): string {
+export function normalizeHost(value?: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     return DEFAULT_ENDPOINT
   }
 
   return value.trim().replace(TRAILING_SLASHES_REGEX, "")
 }
-
 export function normalizeSubmitPath(value?: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     return DEFAULT_SUBMIT_PATH

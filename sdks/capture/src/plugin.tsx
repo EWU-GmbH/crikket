@@ -2,7 +2,9 @@ import { useEffect, useRef } from "react"
 import { init } from "./index"
 import type { CaptureInitOptions } from "./types"
 
-export type CapturePluginProps = CaptureInitOptions
+export type CapturePluginProps = Omit<CaptureInitOptions, "key"> & {
+  publicKey: string
+}
 
 export function CapturePlugin(
   props: CapturePluginProps
@@ -19,9 +21,9 @@ export function CapturePlugin(
     const lifecycleVersion = lifecycleVersionRef.current
     const controller = init({
       autoMount: props.autoMount,
-      endpoint: props.endpoint,
+      host: props.host,
+      key: normalizedKey,
       mountTarget: props.mountTarget,
-      publicKey: normalizedKey,
       submitPath: props.submitPath,
       submitTransport: props.submitTransport,
       zIndex: props.zIndex,
@@ -38,7 +40,7 @@ export function CapturePlugin(
     }
   }, [
     props.autoMount,
-    props.endpoint,
+    props.host,
     props.mountTarget,
     props.publicKey,
     props.submitPath,

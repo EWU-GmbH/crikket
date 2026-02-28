@@ -17,8 +17,8 @@ import type {
 import { mountCaptureUi } from "../ui/mount-capture-ui"
 import type { MountedCaptureUi } from "../ui/types"
 import {
-  normalizeEndpoint,
-  normalizePublicKey,
+  normalizeHost,
+  normalizeKey,
   normalizeSubmitPath,
   normalizeZIndex,
 } from "../utils"
@@ -35,8 +35,8 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
 
   init(options: CaptureInitOptions): CaptureRuntimeController {
     const config: CaptureRuntimeConfig = {
-      publicKey: normalizePublicKey(options.publicKey),
-      endpoint: normalizeEndpoint(options.endpoint),
+      key: normalizeKey(options.key),
+      host: normalizeHost(options.host),
       submitPath: normalizeSubmitPath(options.submitPath),
       zIndex: normalizeZIndex(options.zIndex),
     }
@@ -319,7 +319,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
   private getRuntimeConfig(): CaptureRuntimeConfig {
     if (!this.runtimeConfig) {
       throw new Error(
-        "Capture SDK is not initialized. Call capture.init({ publicKey }) first."
+        "Capture SDK is not initialized. Call capture.init({ key }) first."
       )
     }
 

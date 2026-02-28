@@ -5,8 +5,7 @@ import { retryOnUniqueViolation } from "@crikket/shared/lib/server/retry-on-uniq
 import { and, desc, eq } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
-const LIVE_KEY_PREFIX = "pk_live"
-const TEST_KEY_PREFIX = "pk_test"
+const PUBLIC_KEY_PREFIX = "crk"
 const PUBLIC_KEY_RANDOM_LENGTH = 24
 const CAPTURE_KEY_STATUS = {
   active: "active",
@@ -50,12 +49,8 @@ type CreateCapturePublicKeyInput = {
   organizationId: string
 }
 
-function getCapturePublicKeyPrefix(): string {
-  return env.NODE_ENV === "production" ? LIVE_KEY_PREFIX : TEST_KEY_PREFIX
-}
-
 function buildCapturePublicKey(): string {
-  return `${getCapturePublicKeyPrefix()}_${nanoid(PUBLIC_KEY_RANDOM_LENGTH)}`
+  return `${PUBLIC_KEY_PREFIX}_${nanoid(PUBLIC_KEY_RANDOM_LENGTH)}`
 }
 
 function getDefaultCaptureEnvironment(): string {

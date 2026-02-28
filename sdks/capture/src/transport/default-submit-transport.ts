@@ -5,7 +5,7 @@ const ABSOLUTE_HTTP_URL_REGEX = /^https?:\/\//
 export async function defaultSubmitTransport(
   request: CaptureSubmitRequest
 ): Promise<CaptureSubmitResult> {
-  const submitUrl = `${request.config.endpoint}${request.config.submitPath}`
+  const submitUrl = `${request.config.host}${request.config.submitPath}`
   const formData = new FormData()
 
   formData.set("title", request.report.title)
@@ -34,7 +34,7 @@ export async function defaultSubmitTransport(
   const response = await fetch(submitUrl, {
     method: "POST",
     headers: {
-      "x-crikket-public-key": request.config.publicKey,
+      "x-crikket-public-key": request.config.key,
     },
     body: formData,
     credentials: "omit",
@@ -48,7 +48,7 @@ export async function defaultSubmitTransport(
 
   return {
     shareUrl: resolveShareUrl(
-      request.config.endpoint,
+      request.config.host,
       resolveString(responsePayload, ["shareUrl", "url"])
     ),
     reportId: resolveString(responsePayload, ["id", "reportId"]),
@@ -109,7 +109,7 @@ function resolveString(
 }
 
 function resolveShareUrl(
-  endpoint: string,
+  host: string,
   shareUrl: string | undefined
 ): string | undefined {
   if (!shareUrl) {
@@ -120,7 +120,7 @@ function resolveShareUrl(
     return shareUrl
   }
 
-  return `${endpoint}${shareUrl.startsWith("/") ? shareUrl : `/${shareUrl}`}`
+  return `${host}${shareUrl.startsWith("/") ? shareUrl : `/${shareUrl}`}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
