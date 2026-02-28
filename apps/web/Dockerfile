@@ -16,7 +16,7 @@ COPY packages ./packages
 COPY sdks ./sdks
 
 RUN bun install --frozen-lockfile
-RUN bun run --filter web build
+RUN bun run build -- --filter=web
 
 EXPOSE 3001
 
