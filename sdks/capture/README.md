@@ -18,9 +18,9 @@ bun add @crikket/capture
 import * as capture from "@crikket/capture"
 
 capture.init({
-  publicKey: "pk_live_example",
-  endpoint: "https://app.crikket.com"
+  key: "crk_example",
+  host: "https://api.crikket.io"
 })
 ```
 
-`publicKey` is intended to be publishable and safe for public client environments.
+`key` is intended to be publishable and safe for public client environments.

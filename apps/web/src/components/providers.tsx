@@ -11,7 +11,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app"
 import { queryClient } from "@/utils/orpc"
 
 // hardcoded for testing purposes
-const CAPTURE_TEST_PUBLIC_KEY = "pk_test_rV2A1mTRXPAqOVGw0-bQFoly"
+const CAPTURE_TEST_KEY = "crk_J-2SFa0p5upc27vRunwKDWSA"
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -26,8 +26,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <TooltipProvider>
             {children}
             <CapturePlugin
-              endpoint={env.NEXT_PUBLIC_SERVER_URL}
-              publicKey={CAPTURE_TEST_PUBLIC_KEY}
+              host={env.NEXT_PUBLIC_SERVER_URL}
+              publicKey={CAPTURE_TEST_KEY}
             />
             <ReactQueryDevtools />
           </TooltipProvider>

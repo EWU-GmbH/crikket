@@ -35,16 +35,13 @@ interface PublicKeyRowActionsProps {
   onRotate: (input: { keyId: string }) => Promise<void>
 }
 
-function buildBundlerSnippet(input: {
-  endpoint: string
-  publicKey: string
-}): string {
+function buildBundlerSnippet(input: { host: string; key: string }): string {
   return [
     'import { init } from "@crikket/capture"',
     "",
     "init({",
-    `  publicKey: "${input.publicKey}",`,
-    `  endpoint: "${input.endpoint}",`,
+    `  key: "${input.key}",`,
+    `  host: "${input.host}",`,
     "})",
   ].join("\n")
 }
@@ -88,8 +85,8 @@ export function PublicKeyRowActions({
             onClick={() =>
               copyValue(
                 buildBundlerSnippet({
-                  endpoint: env.NEXT_PUBLIC_SERVER_URL,
-                  publicKey: item.key,
+                  host: env.NEXT_PUBLIC_SERVER_URL,
+                  key: item.key,
                 }),
                 "snippet"
               )
