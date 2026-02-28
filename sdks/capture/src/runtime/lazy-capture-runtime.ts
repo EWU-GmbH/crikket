@@ -8,8 +8,8 @@ import type {
 } from "../types"
 import { mountCaptureLauncher } from "../ui/mount-capture-launcher"
 import {
-  normalizeEndpoint,
-  normalizePublicKey,
+  normalizeHost,
+  normalizeKey,
   normalizeSubmitPath,
   normalizeZIndex,
 } from "../utils"
@@ -29,8 +29,8 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
 
   init(options: CaptureInitOptions): CaptureRuntimeController {
     const runtimeConfig: CaptureRuntimeConfig = {
-      publicKey: normalizePublicKey(options.publicKey),
-      endpoint: normalizeEndpoint(options.endpoint),
+      key: normalizeKey(options.key),
+      host: normalizeHost(options.host),
       submitPath: normalizeSubmitPath(options.submitPath),
       zIndex: normalizeZIndex(options.zIndex),
     }
@@ -39,8 +39,8 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
     this.submitTransport = options.submitTransport
     this.initOptions = {
       ...options,
-      endpoint: runtimeConfig.endpoint,
-      publicKey: runtimeConfig.publicKey,
+      host: runtimeConfig.host,
+      key: runtimeConfig.key,
       submitPath: runtimeConfig.submitPath,
       zIndex: runtimeConfig.zIndex,
       submitTransport: this.submitTransport,
@@ -210,7 +210,7 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
   private getInitOptions(): CaptureInitOptions {
     if (!this.initOptions) {
       throw new Error(
-        "Capture SDK is not initialized. Call capture.init({ publicKey }) first."
+        "Capture SDK is not initialized. Call capture.init({ key }) first."
       )
     }
 
@@ -220,7 +220,7 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
   private getRuntimeConfig(): CaptureRuntimeConfig {
     if (!this.runtimeConfig) {
       throw new Error(
-        "Capture SDK is not initialized. Call capture.init({ publicKey }) first."
+        "Capture SDK is not initialized. Call capture.init({ key }) first."
       )
     }
 

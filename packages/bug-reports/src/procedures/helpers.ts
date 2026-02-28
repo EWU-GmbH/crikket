@@ -1,4 +1,7 @@
+import { db } from "@crikket/db"
+import { member } from "@crikket/db/schema/auth"
 import { ORPCError } from "@orpc/server"
+import { and, eq } from "drizzle-orm"
 
 import type { SessionContext } from "../lib/utils"
 
@@ -9,6 +12,35 @@ export function requireActiveOrgId(session: SessionContext): string {
   }
 
   return activeOrgId
+}
+
+export async function requireActiveOrgAdmin(
+  session: SessionContext
+): Promise<string> {
+  const activeOrgId = requireActiveOrgId(session)
+
+  const activeMember = await db.query.member.findFirst({
+    where: and(
+      eq(member.organizationId, activeOrgId),
+      eq(member.userId, session.user.id)
+    ),
+    columns: {
+      role: true,
+    },
+  })
+
+  if (!(activeMember && isOrgAdminRole(activeMember.role))) {
+    throw new ORPCError("FORBIDDEN", {
+      message:
+        "Only organization admins or owners can manage capture widget keys.",
+    })
+  }
+
+  return activeOrgId
+}
+
+function isOrgAdminRole(role: string): boolean {
+  return role === "owner" || role === "admin"
 }
 
 export function normalizeTags(tags?: string[]): string[] | undefined {
