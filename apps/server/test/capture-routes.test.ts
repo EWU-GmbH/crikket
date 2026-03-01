@@ -491,7 +491,7 @@ function createSubmitRequest(input?: {
   formData.set("pageUrl", "https://example.com/checkout")
   formData.set("priority", "high")
   formData.set("title", "Checkout is broken")
-  formData.set("visibility", "public")
+  formData.set("visibility", "private")
 
   return new Request("https://api.crikket.io/api/embed/bug-reports", {
     body: formData,
