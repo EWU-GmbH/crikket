@@ -68,18 +68,23 @@ export async function runTurnstileChallenge(siteKey: string): Promise<string> {
 
 function loadTurnstileApi(): Promise<TurnstileApi> {
   if (window.turnstile) {
-    return window.turnstile
+    return Promise.resolve(window.turnstile)
   }
 
   if (turnstileScriptPromise) {
     return turnstileScriptPromise
   }
 
-  turnstileScriptPromise = new Promise((resolve, reject) => {
+  const scriptPromise = new Promise<TurnstileApi>((resolve, reject) => {
     const existingScript = document.querySelector<HTMLScriptElement>(
       `script[src="${TURNSTILE_SCRIPT_URL}"]`
     )
     if (existingScript) {
+      if (window.turnstile) {
+        resolve(window.turnstile)
+        return
+      }
+
       existingScript.addEventListener("load", () => {
         if (window.turnstile) {
           resolve(window.turnstile)
@@ -116,5 +121,6 @@ function loadTurnstileApi(): Promise<TurnstileApi> {
     }
   })
 
-  return turnstileScriptPromise
+  turnstileScriptPromise = scriptPromise
+  return scriptPromise
 }
