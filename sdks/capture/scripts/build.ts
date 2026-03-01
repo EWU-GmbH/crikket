@@ -19,6 +19,7 @@ const USE_CLIENT_DIRECTIVE_PATTERN =
   /(^|\n)[\t ]*(["'])use client\2;?[\t ]*(?=\n|$)/g
 const DUPLICATE_INDEX_EXPORT_PATTERN =
   /\nexport \{ init, mount, unmount, open, close, destroy, startRecording, stopRecording, takeScreenshot, submit, reset, isInitialized, getConfig, getCoreVersion \};\n/g
+const FILEPATH_SEGMENT_SEPARATOR_PATTERN = /[\\/]/
 
 const esmBuildEntrypoints = [
   "./src/index.ts",
@@ -31,6 +32,11 @@ const esmBuildExternalPackages = [
   "react-dom/client",
 ] as const
 const WATCH_DEBOUNCE_MS = 120
+const WATCH_SUPPRESSION_MS = 500
+const GENERATED_WATCH_IGNORE_FILENAMES = new Set([
+  "capture.global.js",
+  "capture.global.js.map",
+])
 const shouldWatch = process.argv.includes("--watch")
 
 async function main(): Promise<void> {
@@ -124,6 +130,7 @@ async function watchForChanges(): Promise<void> {
   let buildQueued = false
   let buildRunning = false
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  let suppressWatchEventsUntil = 0
 
   const triggerBuild = () => {
     if (buildRunning) {
@@ -133,6 +140,7 @@ async function watchForChanges(): Promise<void> {
 
     buildRunning = true
     buildQueued = false
+    suppressWatchEventsUntil = Date.now() + WATCH_SUPPRESSION_MS
 
     buildOnce({
       emitDeclarations: false,
@@ -147,21 +155,33 @@ async function watchForChanges(): Promise<void> {
       })
       .finally(() => {
         buildRunning = false
+        suppressWatchEventsUntil = Date.now() + WATCH_SUPPRESSION_MS
         if (buildQueued) {
           triggerBuild()
         }
       })
   }
 
-  const watcher = watch("./src", { recursive: true }, () => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-    }
+  const watcher = watch(
+    "./src",
+    { recursive: true },
+    (_eventType, filename) => {
+      if (
+        Date.now() < suppressWatchEventsUntil ||
+        shouldIgnoreWatchEvent(filename)
+      ) {
+        return
+      }
 
-    debounceTimer = setTimeout(() => {
-      triggerBuild()
-    }, WATCH_DEBOUNCE_MS)
-  })
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
+
+      debounceTimer = setTimeout(() => {
+        triggerBuild()
+      }, WATCH_DEBOUNCE_MS)
+    }
+  )
 
   await new Promise<void>((resolve) => {
     const stopWatching = () => {
@@ -175,6 +195,21 @@ async function watchForChanges(): Promise<void> {
     process.once("SIGINT", stopWatching)
     process.once("SIGTERM", stopWatching)
   })
+}
+
+function shouldIgnoreWatchEvent(filename: string | Buffer | null): boolean {
+  if (!filename) {
+    return false
+  }
+
+  const normalizedFilename = filename.toString()
+  if (normalizedFilename.length === 0) {
+    return false
+  }
+
+  const segments = normalizedFilename.split(FILEPATH_SEGMENT_SEPARATOR_PATTERN)
+  const basename = segments.at(-1)
+  return basename ? GENERATED_WATCH_IGNORE_FILENAMES.has(basename) : false
 }
 
 async function buildPostcssAsset(
