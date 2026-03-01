@@ -312,10 +312,7 @@ export async function handleCaptureSubmit(input: {
         debugger: result.debugger,
         id: result.id,
         reportId: result.id,
-        shareUrl:
-          createInput.visibility === "public"
-            ? new URL(result.shareUrl, input.shareOrigin).toString()
-            : undefined,
+        shareUrl: new URL(result.shareUrl, input.shareOrigin).toString(),
         warnings: result.warnings,
       },
       {
