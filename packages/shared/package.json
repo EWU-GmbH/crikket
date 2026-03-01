@@ -8,6 +8,9 @@
     "./constants/*": "./src/constants/*.ts",
     "./lib/*": "./src/lib/*.ts"
   },
+  "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@crikket/env": "workspace:*",
     "@orpc/client": "catalog:",

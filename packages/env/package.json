@@ -6,6 +6,9 @@
   "exports": {
     "./*": "./src/*.ts"
   },
+  "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.1",
     "@t3-oss/env-nextjs": "^0.13.1",

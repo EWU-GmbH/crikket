@@ -11,7 +11,9 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@crikket/auth": "workspace:*",
     "@crikket/billing": "workspace:*",
