@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { watch } from "node:fs"
 import {
   mkdir,
   readdir,
@@ -29,10 +30,26 @@ const esmBuildExternalPackages = [
   "react-dom",
   "react-dom/client",
 ] as const
+const WATCH_DEBOUNCE_MS = 120
+const shouldWatch = process.argv.includes("--watch")
 
 async function main(): Promise<void> {
   process.chdir(fileURLToPath(new URL("../", import.meta.url)))
 
+  if (shouldWatch) {
+    await buildOnce({
+      emitDeclarations: false,
+    })
+    await watchForChanges()
+    return
+  }
+
+  await buildOnce({
+    emitDeclarations: true,
+  })
+}
+
+async function buildOnce(input: { emitDeclarations: boolean }): Promise<void> {
   await rm("./dist", {
     force: true,
     recursive: true,
@@ -84,19 +101,80 @@ async function main(): Promise<void> {
     widgetCss,
   })
 
-  const exitCode = await runCommand([
-    "bun",
-    "x",
-    "tsc",
-    "--emitDeclarationOnly",
-    "-p",
-    "tsconfig.json",
-  ])
-  if (exitCode !== 0) {
-    throw new Error("Type declaration build failed.")
+  if (input.emitDeclarations) {
+    const exitCode = await runCommand([
+      "bun",
+      "x",
+      "tsc",
+      "--emitDeclarationOnly",
+      "-p",
+      "tsconfig.json",
+    ])
+    if (exitCode !== 0) {
+      throw new Error("Type declaration build failed.")
+    }
   }
 
   await writeReactEntry()
+}
+
+async function watchForChanges(): Promise<void> {
+  console.log("[capture] watching for changes")
+
+  let buildQueued = false
+  let buildRunning = false
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+  const triggerBuild = () => {
+    if (buildRunning) {
+      buildQueued = true
+      return
+    }
+
+    buildRunning = true
+    buildQueued = false
+
+    buildOnce({
+      emitDeclarations: false,
+    })
+      .then(() => {
+        console.log(`[capture] rebuilt at ${new Date().toLocaleTimeString()}`)
+      })
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : "Unknown build error"
+        console.error(`[capture] rebuild failed: ${message}`)
+      })
+      .finally(() => {
+        buildRunning = false
+        if (buildQueued) {
+          triggerBuild()
+        }
+      })
+  }
+
+  const watcher = watch("./src", { recursive: true }, () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+    }
+
+    debounceTimer = setTimeout(() => {
+      triggerBuild()
+    }, WATCH_DEBOUNCE_MS)
+  })
+
+  await new Promise<void>((resolve) => {
+    const stopWatching = () => {
+      watcher.close()
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
+      resolve()
+    }
+
+    process.once("SIGINT", stopWatching)
+    process.once("SIGTERM", stopWatching)
+  })
 }
 
 async function buildPostcssAsset(
