@@ -3,10 +3,21 @@ export interface ScreenshotAnnotationPoint {
   y: number
 }
 
+export const screenshotAnnotationColorOptions = [
+  { label: "Orange", value: "#F97316" },
+  { label: "Red", value: "#EF4444" },
+  { label: "Blue", value: "#3B82F6" },
+  { label: "Green", value: "#22C55E" },
+] as const
+
+export type ScreenshotAnnotationColor =
+  (typeof screenshotAnnotationColorOptions)[number]["value"]
+
 export interface ScreenshotStrokeAnnotation {
   kind: "stroke"
   tool: "draw" | "highlight"
   points: ScreenshotAnnotationPoint[]
+  color: ScreenshotAnnotationColor
 }
 
 export interface ScreenshotRectangleAnnotation {
@@ -15,16 +26,12 @@ export interface ScreenshotRectangleAnnotation {
   y: number
   width: number
   height: number
+  color: ScreenshotAnnotationColor
 }
 
 export type ScreenshotAnnotation =
   | ScreenshotStrokeAnnotation
   | ScreenshotRectangleAnnotation
-
-const DRAW_COLOR = "rgb(239 68 68)"
-const HIGHLIGHT_COLOR = "rgba(250, 204, 21, 0.35)"
-const RECTANGLE_FILL = "rgba(249, 115, 22, 0.16)"
-const RECTANGLE_STROKE = "rgb(249 115 22)"
 
 export async function createAnnotatedScreenshotBlob(input: {
   annotations: ScreenshotAnnotation[]
@@ -136,7 +143,9 @@ function drawStroke(input: {
 
   context.save()
   context.strokeStyle =
-    input.annotation.tool === "highlight" ? HIGHLIGHT_COLOR : DRAW_COLOR
+    input.annotation.tool === "highlight"
+      ? withAlpha(input.annotation.color, 0.28)
+      : input.annotation.color
   context.lineCap = "round"
   context.lineJoin = "round"
   context.lineWidth = strokeWidth
@@ -167,8 +176,8 @@ function drawRectangle(input: {
   const rectangleHeight = annotation.height * height
 
   context.save()
-  context.fillStyle = RECTANGLE_FILL
-  context.strokeStyle = RECTANGLE_STROKE
+  context.fillStyle = withAlpha(annotation.color, 0.08)
+  context.strokeStyle = annotation.color
   context.lineWidth = Math.max(3, Math.round(Math.min(width, height) * 0.005))
   context.fillRect(x, y, rectangleWidth, rectangleHeight)
   context.strokeRect(x, y, rectangleWidth, rectangleHeight)
@@ -191,4 +200,13 @@ function loadImage(source: string): Promise<HTMLImageElement> {
     }
     image.src = source
   })
+}
+
+function withAlpha(color: ScreenshotAnnotationColor, alpha: number): string {
+  const hex = color.slice(1)
+  const red = Number.parseInt(hex.slice(0, 2), 16)
+  const green = Number.parseInt(hex.slice(2, 4), 16)
+  const blue = Number.parseInt(hex.slice(4, 6), 16)
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }

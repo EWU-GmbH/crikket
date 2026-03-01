@@ -84,22 +84,20 @@ export function ReviewFormSection({
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto p-5">
-          <div className="flex min-h-full items-center justify-center">
-            <div className="w-full overflow-hidden rounded-xl border bg-card shadow-sm">
-              {state.media?.captureType === "screenshot" ? (
-                <ScreenshotAnnotationEditor
-                  annotations={annotations}
-                  disabled={state.busy || isSubmitting}
-                  onChange={setAnnotations}
-                  src={state.media.objectUrl}
-                />
-              ) : (
-                <div className="aspect-video w-full bg-black">
-                  <MediaPreview media={state.media} />
-                </div>
-              )}
+          {state.media?.captureType === "screenshot" ? (
+            <ScreenshotAnnotationEditor
+              annotations={annotations}
+              disabled={state.busy || isSubmitting}
+              onChange={setAnnotations}
+              src={state.media.objectUrl}
+            />
+          ) : (
+            <div className="flex min-h-full items-center justify-center">
+              <div className="aspect-video w-full overflow-hidden rounded-xl border border-border/70 bg-black">
+                <MediaPreview media={state.media} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

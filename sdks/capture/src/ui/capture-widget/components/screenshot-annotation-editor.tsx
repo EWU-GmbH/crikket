@@ -9,13 +9,23 @@ import {
   clampAnnotationPoint,
   drawScreenshotAnnotations,
   type ScreenshotAnnotation,
+  type ScreenshotAnnotationColor,
+  screenshotAnnotationColorOptions,
 } from "../utils/screenshot-annotations"
+import {
+  DrawIcon,
+  HighlightIcon,
+  RectangleIcon,
+  ResetIcon,
+  UndoIcon,
+} from "./icons"
 import { Button } from "./primitives/button"
 import { cn } from "./primitives/cn"
 
 type AnnotationTool = "draw" | "highlight" | "rectangle"
 
 const DEFAULT_TOOL: AnnotationTool = "draw"
+const DEFAULT_COLOR = screenshotAnnotationColorOptions[0].value
 
 export function ScreenshotAnnotationEditor(props: {
   annotations: ScreenshotAnnotation[]
@@ -29,6 +39,7 @@ export function ScreenshotAnnotationEditor(props: {
   const rectangleOriginRef = useRef<{ x: number; y: number } | null>(null)
   const [loadedImage, setLoadedImage] = useState<HTMLImageElement | null>(null)
   const [tool, setTool] = useState<AnnotationTool>(DEFAULT_TOOL)
+  const [color, setColor] = useState<ScreenshotAnnotationColor>(DEFAULT_COLOR)
   const [draftAnnotation, setDraftAnnotation] =
     useState<ScreenshotAnnotation | null>(null)
   const draftAnnotationRef = useRef<ScreenshotAnnotation | null>(null)
@@ -151,6 +162,7 @@ export function ScreenshotAnnotationEditor(props: {
       rectangleOriginRef.current = point
       setDraftAnnotation({
         kind: "rectangle",
+        color,
         x: point.x,
         y: point.y,
         width: 0,
@@ -160,6 +172,7 @@ export function ScreenshotAnnotationEditor(props: {
     }
 
     setDraftAnnotation({
+      color,
       kind: "stroke",
       points: [point],
       tool,
@@ -178,6 +191,7 @@ export function ScreenshotAnnotationEditor(props: {
         y: draftAnnotation.y,
       }
       setDraftAnnotation({
+        color: draftAnnotation.color,
         kind: "rectangle",
         x: Math.min(origin.x, point.x),
         y: Math.min(origin.y, point.y),
@@ -228,79 +242,97 @@ export function ScreenshotAnnotationEditor(props: {
   const hasAnnotations = props.annotations.length > 0
 
   return (
-    <div className="grid gap-0">
-      <div className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-3">
+    <div className="grid min-h-full grid-rows-[auto_1fr]">
+      <div className="flex flex-wrap items-center gap-2 px-0 py-0 pb-4">
         <ToolButton
           active={tool === "draw"}
           disabled={props.disabled}
+          icon={<DrawIcon className="h-4 w-4" />}
+          label="Draw"
           onClick={() => {
             setTool("draw")
           }}
-        >
-          Draw
-        </ToolButton>
+        />
         <ToolButton
           active={tool === "highlight"}
           disabled={props.disabled}
+          icon={<HighlightIcon className="h-4 w-4" />}
+          label="Highlight"
           onClick={() => {
             setTool("highlight")
           }}
-        >
-          Highlight
-        </ToolButton>
+        />
         <ToolButton
           active={tool === "rectangle"}
           disabled={props.disabled}
+          icon={<RectangleIcon className="h-4 w-4" />}
+          label="Rectangle"
           onClick={() => {
             setTool("rectangle")
           }}
-        >
-          Rectangle
-        </ToolButton>
+        />
+        <div className="flex items-center gap-2">
+          {screenshotAnnotationColorOptions.map((option) => (
+            <ColorButton
+              active={color === option.value}
+              color={option.value}
+              disabled={props.disabled}
+              key={option.value}
+              label={option.label}
+              onClick={() => {
+                setColor(option.value)
+              }}
+            />
+          ))}
+        </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button
+            className="gap-2"
             disabled={props.disabled || !hasAnnotations}
             onClick={() => {
               props.onChange(props.annotations.slice(0, -1))
             }}
-            size="sm"
+            size="icon"
             type="button"
             variant="outline"
           >
-            Undo
+            <UndoIcon className="h-4 w-4" />
           </Button>
           <Button
+            className="gap-2"
             disabled={props.disabled || !hasAnnotations}
             onClick={() => {
               props.onChange([])
               setDraftAnnotation(null)
             }}
-            size="sm"
+            size="icon"
             type="button"
             variant="outline"
           >
-            Reset
+            <ResetIcon className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="bg-muted/20 p-4">
-        <div className="mx-auto max-w-full" ref={containerRef}>
-          <canvas
-            aria-label="Screenshot annotation editor"
-            className={cn(
-              "block w-full rounded-lg bg-white shadow-sm",
-              props.disabled ? "cursor-default" : "cursor-crosshair"
-            )}
-            onPointerCancel={handlePointerEnd}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerEnd}
-            ref={canvasRef}
-            style={{
-              touchAction: "none",
-            }}
-          />
+      <div className="min-h-0 overflow-auto">
+        <div className="flex min-h-full items-center justify-center">
+          <div className="w-full max-w-[960px]" ref={containerRef}>
+            <canvas
+              aria-label="Screenshot annotation editor"
+              className={cn(
+                "block w-full rounded-xl bg-white shadow-sm",
+                props.disabled ? "cursor-default" : "cursor-crosshair"
+              )}
+              onPointerCancel={handlePointerEnd}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerEnd}
+              ref={canvasRef}
+              style={{
+                touchAction: "none",
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -320,13 +352,15 @@ export function ScreenshotAnnotationEditor(props: {
 
 function ToolButton(props: {
   active: boolean
-  children: React.ReactNode
   disabled: boolean
+  icon: React.ReactNode
+  label: string
   onClick: () => void
 }): React.JSX.Element {
   return (
     <Button
       className={cn(
+        "gap-2",
         props.active ? "border-transparent bg-foreground text-background" : null
       )}
       disabled={props.disabled}
@@ -335,7 +369,32 @@ function ToolButton(props: {
       type="button"
       variant={props.active ? "secondary" : "outline"}
     >
-      {props.children}
+      <span className="text-sm">{props.icon}</span>
+      <span>{props.label}</span>
     </Button>
+  )
+}
+
+function ColorButton(props: {
+  active: boolean
+  color: string
+  disabled: boolean
+  label: string
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      aria-label={props.label}
+      className={cn(
+        "h-5 w-5 rounded-full border transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+        props.active ? "scale-110 border-foreground" : "border-border"
+      )}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      style={{
+        backgroundColor: props.color,
+      }}
+      type="button"
+    />
   )
 }
