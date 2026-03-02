@@ -1,0 +1,189 @@
+---
+title: Storage Setup
+description: Configure object storage for uploads, direct browser PUTs, and CORS for Cloudflare R2 or AWS S3.
+---
+
+## Why Storage Setup Matters
+
+Crikket uploads bug report artifacts directly from the browser to object storage.
+
+That includes:
+
+- screenshots
+- video recordings
+- raw debugger payload artifacts
+
+This keeps Crikket API requests small, but it means your storage bucket must be configured correctly for browser uploads.
+
+If storage CORS is missing or wrong, bug report uploads fail before finalize completes.
+
+## Required Server Environment Variables
+
+Set these in `apps/server/.env`:
+
+```bash
+STORAGE_BUCKET
+STORAGE_ACCESS_KEY_ID
+STORAGE_SECRET_ACCESS_KEY
+STORAGE_REGION
+STORAGE_ENDPOINT
+STORAGE_PUBLIC_URL
+```
+
+Rules:
+
+- `STORAGE_BUCKET` is always required.
+- `STORAGE_ACCESS_KEY_ID` and `STORAGE_SECRET_ACCESS_KEY` are always required.
+- `STORAGE_REGION` is required for standard AWS S3.
+- `STORAGE_ENDPOINT` is recommended for R2 and custom S3-compatible providers.
+- `STORAGE_PUBLIC_URL` is optional.
+
+Use one of these patterns:
+
+### AWS S3
+
+```bash
+STORAGE_BUCKET=crikket-production
+STORAGE_ACCESS_KEY_ID=your-access-key-id
+STORAGE_SECRET_ACCESS_KEY=your-secret-access-key
+STORAGE_REGION=us-east-1
+```
+
+### Cloudflare R2
+
+```bash
+STORAGE_BUCKET=crikket-production
+STORAGE_ACCESS_KEY_ID=your-r2-access-key-id
+STORAGE_SECRET_ACCESS_KEY=your-r2-secret-access-key
+STORAGE_REGION=auto
+STORAGE_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+```
+
+### Optional Public URL
+
+If you serve files from a CDN or public bucket hostname and want stable public URLs instead of signed URLs:
+
+```bash
+STORAGE_PUBLIC_URL=https://cdn.example.com/bug-reports
+```
+
+## Browser Upload Model
+
+Crikket uses this flow for bug report artifacts:
+
+1. Crikket API creates an upload session.
+2. The browser uploads capture and debugger artifacts directly to storage using presigned `PUT` URLs.
+3. Crikket API finalizes the report only after storage uploads succeed.
+
+Because the browser talks directly to storage, CORS is mandatory.
+
+## CORS Requirements
+
+Your storage bucket must allow browser requests from every frontend origin that can submit bug reports.
+
+At minimum, allow:
+
+- `PUT` for direct uploads
+- `GET` and `HEAD` for direct object access and previews
+- `Origin`, `Content-Type`, and other request headers used by the browser
+
+Recommended production policy:
+
+- allow only your real frontend origins, not `*`
+- include every app domain that can submit bug reports
+- expose `ETag`
+
+If you are testing locally, include your local frontend origin too, for example:
+
+```bash
+http://localhost:3001
+https://local.crikket.io
+```
+
+## Cloudflare R2 CORS
+
+In Cloudflare Dashboard:
+
+1. Open `R2`.
+2. Select your bucket.
+3. Open `Settings`.
+4. Add a `CORS policy`.
+
+Recommended policy:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://app.example.com",
+      "https://admin.example.com",
+      "https://local.crikket.io"
+    ],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Notes:
+
+- `PUT` is the critical method for bug report uploads.
+- `GET` and `HEAD` are recommended for media access and preview behavior.
+- `DELETE` is not required for browser uploads.
+
+## AWS S3 CORS
+
+In AWS Console:
+
+1. Open `S3`.
+2. Select your bucket.
+3. Open `Permissions`.
+4. Edit `Cross-origin resource sharing (CORS)`.
+
+Recommended policy:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://app.example.com",
+      "https://admin.example.com",
+      "https://local.crikket.io"
+    ],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+## Verify Storage Before Go-Live
+
+Before shipping, verify all of these:
+
+- `STORAGE_BUCKET` points to the correct bucket
+- `STORAGE_REGION` or `STORAGE_ENDPOINT` matches the provider
+- access key and secret key belong to that bucket/account
+- bucket CORS includes every frontend origin that can submit reports
+- screenshot upload works
+- video upload works
+- uploaded report media is readable after finalize
+
+## Common Failure Mode
+
+If bug report upload fails with a message similar to:
+
+- direct upload to storage failed
+- upload failed before the server responded
+
+the most common cause is missing or incorrect bucket CORS.
+
+Check:
+
+- bucket CORS policy
+- frontend origin matches exactly
+- `STORAGE_ENDPOINT` points to the right provider endpoint
+- browser `PUT` request response in DevTools

@@ -45,7 +45,10 @@ BETTER_AUTH_COOKIE_DOMAIN (if app/api are different subdomains)
 
 - Verify `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, and `STORAGE_SECRET_ACCESS_KEY`
 - Verify `STORAGE_REGION`/`STORAGE_ENDPOINT` for your provider
+- Verify bucket CORS if uploads fail before the server responds
 - If using `STORAGE_PUBLIC_URL`, confirm it points to accessible objects
+
+See: [Storage Setup](/docs/self-hosting/storage)
 
 ### Redis or Turnstile Not Configured
 
