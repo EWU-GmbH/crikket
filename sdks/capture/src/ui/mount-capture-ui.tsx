@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
 import { CaptureWidgetRoot } from "./capture-widget/capture-widget-root"
 import { createCaptureUiStore } from "./store/capture-ui-store"
@@ -24,9 +25,20 @@ export function mountCaptureUi(
   const reactRoot = createRoot(container)
   const store = createCaptureUiStore()
 
-  reactRoot.render(
-    <CaptureWidgetRoot callbacks={callbacks} store={store} zIndex={zIndex} />
-  )
+  try {
+    flushSync(() => {
+      reactRoot.render(
+        <CaptureWidgetRoot
+          callbacks={callbacks}
+          store={store}
+          zIndex={zIndex}
+        />
+      )
+    })
+  } catch (error) {
+    container.textContent = "Crikket Capture failed to render."
+    throw error
+  }
 
   return {
     setHidden: (hidden) => {
