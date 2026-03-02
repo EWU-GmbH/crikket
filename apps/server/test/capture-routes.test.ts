@@ -19,7 +19,6 @@ const publicKeyRecord = {
   allowedOrigins: [validOrigin],
   createdAt: new Date(),
   createdBy: null,
-  environment: "production",
   id: "key_123",
   key: "crk_test",
   label: "Example",

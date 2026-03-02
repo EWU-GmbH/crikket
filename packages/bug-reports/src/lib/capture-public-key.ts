@@ -1,6 +1,5 @@
 import { db } from "@crikket/db"
 import { capturePublicKey } from "@crikket/db/schema/bug-report"
-import { env } from "@crikket/env/server"
 import { retryOnUniqueViolation } from "@crikket/shared/lib/server/retry-on-unique-violation"
 import { and, desc, eq } from "drizzle-orm"
 import { nanoid } from "nanoid"
@@ -11,10 +10,6 @@ const CAPTURE_KEY_STATUS = {
   active: "active",
   revoked: "revoked",
 } as const
-const CAPTURE_ENVIRONMENT = {
-  development: "development",
-  production: "production",
-} as const
 
 type CapturePublicKeyStatus =
   (typeof CAPTURE_KEY_STATUS)[keyof typeof CAPTURE_KEY_STATUS]
@@ -23,7 +18,6 @@ export interface CapturePublicKeyRecord {
   allowedOrigins: string[]
   createdAt: Date
   createdBy: string | null
-  environment: string
   id: string
   key: string
   label: string
@@ -36,7 +30,6 @@ export interface CapturePublicKeyRecord {
 
 type EnsureCapturePublicKeyForSiteInput = {
   createdBy?: string | null
-  environment?: string | null
   label?: string | null
   organizationId: string
   origin: string
@@ -53,12 +46,6 @@ function buildCapturePublicKey(): string {
   return `${PUBLIC_KEY_PREFIX}_${nanoid(PUBLIC_KEY_RANDOM_LENGTH)}`
 }
 
-function getDefaultCaptureEnvironment(): string {
-  return env.NODE_ENV === "production"
-    ? CAPTURE_ENVIRONMENT.production
-    : CAPTURE_ENVIRONMENT.development
-}
-
 function buildDefaultSiteLabel(origin: string): string {
   try {
     const parsedOrigin = new URL(origin)
@@ -72,11 +59,6 @@ function buildDefaultSiteLabel(origin: string): string {
   } catch {
     return "capture-site"
   }
-}
-
-function normalizeCaptureKeyEnvironment(value?: string | null): string {
-  const normalized = value?.trim().toLowerCase()
-  return normalized ? normalized.slice(0, 40) : getDefaultCaptureEnvironment()
 }
 
 function normalizeCaptureKeyLabel(
@@ -142,7 +124,6 @@ function toCapturePublicKeyRecord(
     allowedOrigins: normalizeCaptureOrigins(record.allowedOrigins),
     createdAt: record.createdAt,
     createdBy: record.createdBy,
-    environment: record.environment,
     id: record.id,
     key: record.key,
     label: record.label,
@@ -229,7 +210,6 @@ export async function ensureCapturePublicKeyForSite(
       organizationId: input.organizationId,
       key,
       label: normalizeCaptureKeyLabel(input.label, normalizedOrigin),
-      environment: normalizeCaptureKeyEnvironment(input.environment),
       allowedOrigins: [normalizedOrigin],
       status: CAPTURE_KEY_STATUS.active,
       createdBy: input.createdBy ?? null,
@@ -265,7 +245,6 @@ export function createCapturePublicKey(
       .values({
         allowedOrigins,
         createdBy: input.createdBy ?? null,
-        environment: getDefaultCaptureEnvironment(),
         id: nanoid(16),
         key: buildCapturePublicKey(),
         label,

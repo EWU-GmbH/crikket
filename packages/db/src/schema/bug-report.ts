@@ -128,7 +128,6 @@ export const capturePublicKey = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     key: text("key").notNull().unique(),
     label: text("label").notNull(),
-    environment: text("environment").notNull(),
     allowedOrigins: text("allowed_origins")
       .array()
       .default(sql`ARRAY[]::text[]`)
