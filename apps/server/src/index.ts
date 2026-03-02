@@ -5,6 +5,8 @@ import {
 } from "@crikket/api/rate-limit"
 import { appRouter } from "@crikket/api/routers/index"
 import { auth } from "@crikket/auth"
+import { runBugReportIngestionPass } from "@crikket/bug-reports/lib/ingestion-jobs"
+import { runStalePendingBugReportCleanupPass } from "@crikket/bug-reports/lib/orphan-cleanup"
 import { runAttachmentCleanupPass } from "@crikket/bug-reports/lib/storage"
 import { env } from "@crikket/env/server"
 import { OpenAPIHandler } from "@orpc/openapi/fetch"
@@ -15,14 +17,17 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
-import { handleCaptureSubmit } from "./capture/submit-route"
+import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
+import { handleCaptureUploadSession } from "./capture/upload-session-route"
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
 const fallbackCorsOrigin = allowedCorsOrigins[0] ?? env.BETTER_AUTH_URL
 const captureShareOrigin = allowedCorsOrigins[0] ?? env.BETTER_AUTH_URL
 const MAX_RPC_REQUEST_BODY_BYTES = 110 * 1024 * 1024
+const BUG_REPORT_INGESTION_INTERVAL_MS = 60 * 1000
+const BUG_REPORT_ORPHAN_CLEANUP_INTERVAL_MS = 60 * 60 * 1000
 const STORAGE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
 type RateLimitHeaders = Record<string, string>
 
@@ -98,8 +103,9 @@ app.use(
   cors({
     origin: (origin, c) => {
       if (
-        (c.req.path === "/api/embed/bug-reports" ||
-          c.req.path === "/api/embed/capture-token") &&
+        (c.req.path === "/api/embed/capture-token" ||
+          c.req.path === "/api/embed/bug-report-upload-session" ||
+          c.req.path === "/api/embed/bug-report-finalize") &&
         origin.trim().length > 0
       ) {
         return origin
@@ -112,6 +118,7 @@ app.use(
     allowHeaders: [
       "Authorization",
       "Content-Type",
+      "x-crikket-capture-finalize-token",
       "x-crikket-capture-token",
       "x-crikket-public-key",
     ],
@@ -125,8 +132,13 @@ app.post("/api/embed/capture-token", (c) => {
     request: c.req.raw,
   })
 })
-app.post("/api/embed/bug-reports", (c) => {
-  return handleCaptureSubmit({
+app.post("/api/embed/bug-report-upload-session", (c) => {
+  return handleCaptureUploadSession({
+    request: c.req.raw,
+  })
+})
+app.post("/api/embed/bug-report-finalize", (c) => {
+  return handleCaptureFinalize({
     request: c.req.raw,
     shareOrigin: captureShareOrigin,
   })
@@ -139,6 +151,28 @@ const cleanupInterval = setInterval(() => {
 }, STORAGE_CLEANUP_INTERVAL_MS)
 
 cleanupInterval.unref?.()
+
+const ingestionInterval = setInterval(() => {
+  runBugReportIngestionPass({ limit: 10 }).catch((error: unknown) => {
+    console.error(
+      "[bug-report-ingestion] failed scheduled ingestion pass",
+      error
+    )
+  })
+}, BUG_REPORT_INGESTION_INTERVAL_MS)
+
+ingestionInterval.unref?.()
+
+const orphanCleanupInterval = setInterval(() => {
+  runStalePendingBugReportCleanupPass({ limit: 10 }).catch((error: unknown) => {
+    console.error(
+      "[bug-report-orphan-cleanup] failed scheduled orphan cleanup pass",
+      error
+    )
+  })
+}, BUG_REPORT_ORPHAN_CLEANUP_INTERVAL_MS)
+
+orphanCleanupInterval.unref?.()
 
 export const apiHandler = new OpenAPIHandler(appRouter, {
   plugins: [

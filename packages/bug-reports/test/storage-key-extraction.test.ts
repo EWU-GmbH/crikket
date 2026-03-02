@@ -37,6 +37,10 @@ mock.module("@crikket/env/server", () => ({
 mock.module("@crikket/db", () => ({
   db: {
     query: {
+      bugReportArtifactCleanup: {
+        findMany: async () => [],
+        findFirst: async () => null,
+      },
       bugReportStorageCleanup: {
         findMany: async () => [],
         findFirst: async () => null,
@@ -50,13 +54,6 @@ mock.module("@crikket/db", () => ({
         onConflictDoUpdate: async () => undefined,
       }),
     }),
-  },
-}))
-
-mock.module("@crikket/db/schema/bug-report", () => ({
-  bugReportStorageCleanup: {
-    attachmentKey: { __column: "attachmentKey" },
-    nextAttemptAt: { __column: "nextAttemptAt" },
   },
 }))
 

@@ -6,6 +6,7 @@ import { getCaptureRedis } from "./security"
 const CAPTURE_SUBMIT_TOKEN_VERSION = 1
 const CAPTURE_SUBMIT_TOKEN_TTL_MS = 5 * 60 * 1000
 const CAPTURE_SUBMIT_TOKEN_REPLAY_PREFIX = "crikket:capture-submit-token"
+const CAPTURE_FINALIZE_TOKEN_TTL_MS = 15 * 60 * 1000
 const TURNSTILE_VERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
@@ -16,6 +17,17 @@ interface CaptureSubmitTokenPayload {
   keyId: string
   origin: string
   type: "capture-submit"
+  v: number
+}
+
+interface CaptureFinalizeTokenPayload {
+  exp: number
+  iat: number
+  jti: string
+  keyId: string
+  origin: string
+  reportId: string
+  type: "capture-finalize"
   v: number
 }
 
@@ -162,6 +174,106 @@ export async function verifyCaptureSubmitToken(input: {
   })
 }
 
+export function createCaptureFinalizeToken(input: {
+  keyId: string
+  now?: number
+  origin: string
+  reportId: string
+}): {
+  expiresAt: string
+  token: string
+} | null {
+  const secret = env.CAPTURE_SUBMIT_TOKEN_SECRET
+  if (!secret) {
+    return null
+  }
+
+  const issuedAt = input.now ?? Date.now()
+  const payload: CaptureFinalizeTokenPayload = {
+    exp: issuedAt + CAPTURE_FINALIZE_TOKEN_TTL_MS,
+    iat: issuedAt,
+    jti: randomUUID(),
+    keyId: input.keyId,
+    origin: input.origin,
+    reportId: input.reportId,
+    type: "capture-finalize",
+    v: CAPTURE_SUBMIT_TOKEN_VERSION,
+  }
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload))
+  const signature = signValue(encodedPayload, secret)
+
+  return {
+    expiresAt: new Date(payload.exp).toISOString(),
+    token: `${encodedPayload}.${signature}`,
+  }
+}
+
+export async function verifyCaptureFinalizeToken(input: {
+  keyId: string
+  now?: number
+  origin: string
+  reportId: string
+  token: string
+}): Promise<void> {
+  const secret = env.CAPTURE_SUBMIT_TOKEN_SECRET
+  if (!secret) {
+    return
+  }
+
+  const [encodedPayload, signature] = input.token.split(".")
+  if (!(encodedPayload && signature)) {
+    throw new ORPCError("UNAUTHORIZED", {
+      data: {
+        reasonCode: "invalid_finalize_token",
+      },
+      message: "Capture finalize token is invalid.",
+    })
+  }
+
+  const expectedSignature = signValue(encodedPayload, secret)
+  if (!safeEqual(signature, expectedSignature)) {
+    throw new ORPCError("UNAUTHORIZED", {
+      data: {
+        reasonCode: "invalid_finalize_token",
+      },
+      message: "Capture finalize token is invalid.",
+    })
+  }
+
+  const payload = parseFinalizeTokenPayload(encodedPayload)
+  const now = input.now ?? Date.now()
+
+  if (payload.exp <= now) {
+    throw new ORPCError("UNAUTHORIZED", {
+      data: {
+        reasonCode: "invalid_finalize_token",
+      },
+      message: "Capture finalize token is invalid or expired.",
+    })
+  }
+
+  if (
+    payload.type !== "capture-finalize" ||
+    payload.v !== CAPTURE_SUBMIT_TOKEN_VERSION ||
+    payload.keyId !== input.keyId ||
+    payload.origin !== input.origin ||
+    payload.reportId !== input.reportId
+  ) {
+    throw new ORPCError("UNAUTHORIZED", {
+      data: {
+        reasonCode: "invalid_finalize_token",
+      },
+      message: "Capture finalize token is invalid or expired.",
+    })
+  }
+
+  await consumeCaptureSubmitToken({
+    expiresAt: payload.exp,
+    jti: payload.jti,
+    now,
+  })
+}
+
 export async function verifyTurnstileToken(input: {
   origin: string
   remoteIp?: string | null
@@ -245,6 +357,38 @@ function parseTokenPayload(encodedPayload: string): CaptureSubmitTokenPayload {
         reasonCode: "invalid_submit_token",
       },
       message: "Capture submit token is invalid.",
+    })
+  }
+}
+
+function parseFinalizeTokenPayload(
+  encodedPayload: string
+): CaptureFinalizeTokenPayload {
+  try {
+    const payload = JSON.parse(
+      base64UrlDecode(encodedPayload).toString("utf8")
+    ) as Partial<CaptureFinalizeTokenPayload>
+
+    if (
+      typeof payload.exp !== "number" ||
+      typeof payload.iat !== "number" ||
+      typeof payload.jti !== "string" ||
+      typeof payload.keyId !== "string" ||
+      typeof payload.origin !== "string" ||
+      typeof payload.reportId !== "string" ||
+      payload.type !== "capture-finalize" ||
+      typeof payload.v !== "number"
+    ) {
+      throw new Error("Invalid token payload shape.")
+    }
+
+    return payload as CaptureFinalizeTokenPayload
+  } catch {
+    throw new ORPCError("UNAUTHORIZED", {
+      data: {
+        reasonCode: "invalid_finalize_token",
+      },
+      message: "Capture finalize token is invalid.",
     })
   }
 }

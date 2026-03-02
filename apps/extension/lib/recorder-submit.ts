@@ -86,8 +86,11 @@ export function getSubmissionErrorMessage(error: unknown): string {
   }
 
   if (error instanceof Error) {
-    if (error.message.includes("Failed to fetch")) {
-      return "Could not reach the server. Check your connection and sign-in state, then retry."
+    if (
+      error.message.includes("Failed to fetch") ||
+      error.message.includes("Direct upload to storage failed")
+    ) {
+      return "Direct upload to storage failed. Check storage CORS or network access, then retry."
     }
 
     return error.message

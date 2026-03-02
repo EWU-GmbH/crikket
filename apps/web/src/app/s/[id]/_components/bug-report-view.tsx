@@ -1,5 +1,9 @@
 "use client"
 
+import {
+  BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
+  BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+} from "@crikket/shared/constants/bug-report"
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { Button } from "@crikket/ui/components/ui/button"
 import {
@@ -7,18 +11,19 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@crikket/ui/components/ui/resizable"
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query"
 import { AlertCircle, Edit, Eye, EyeOff, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs"
 import { useCallback, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import { EditBugReportSheet } from "@/components/bug-reports/edit-bug-report-sheet"
-import { orpc } from "@/utils/orpc"
+import { client, orpc } from "@/utils/orpc"
 
 import { BugReportCanvas } from "./bug-report-canvas"
 import { BugReportHeader } from "./bug-report-header"
 import { BugReportSidebar, type SidebarTab } from "./bug-report-sidebar"
-import type { DebuggerTimelineEntry } from "./types"
+import type { DebuggerTimelineEntry, SharedBugReport } from "./types"
 import {
   applyVideoOffsetFallback,
   buildActionEntry,
@@ -65,6 +70,303 @@ function getMetadataDurationMs(metadata: unknown): number | null {
   }
 
   return Math.max(0, Math.floor(durationMs))
+}
+
+function formatSubmissionStatusLabel(status: string): string {
+  switch (status) {
+    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload:
+      return "Waiting for upload completion"
+    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing:
+      return "Processing uploaded artifacts"
+    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed:
+      return "Report processing failed"
+    default:
+      return "Report ready"
+  }
+}
+
+function formatDebuggerIngestionStatusLabel(status: string): string {
+  switch (status) {
+    case BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.notUploaded:
+      return "Not uploaded"
+    case BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.pending:
+      return "Pending"
+    case BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.processing:
+      return "Processing"
+    case BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.failed:
+      return "Failed"
+    default:
+      return "Completed"
+  }
+}
+
+function renderBugReportLoadingState() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  )
+}
+
+function renderBugReportMissingState() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-background p-4">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div>
+          <h1 className="font-semibold text-xl">Bug report not found</h1>
+          <p className="text-muted-foreground text-sm">
+            This share link is invalid or the report was removed.
+          </p>
+        </div>
+        <Link href="/">
+          <Button variant="outline">Back to dashboard</Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function syncPlaybackToEntry(input: {
+  desktopVideo: HTMLVideoElement | null
+  entry: DebuggerTimelineEntry
+  getVisibleVideoElement: () => HTMLVideoElement | null
+  metadataDurationMs: number | null
+  mobileVideo: HTMLVideoElement | null
+  setPlaybackOffsetMs: (value: number) => void
+  showVideo: boolean
+}): void {
+  if (!input.showVideo || typeof input.entry.offset !== "number") {
+    return
+  }
+
+  const clampedOffsetMs =
+    typeof input.metadataDurationMs === "number"
+      ? Math.min(input.entry.offset, input.metadataDurationMs)
+      : input.entry.offset
+  const targetSeconds = clampedOffsetMs / 1000
+  const visiblePlayer = input.getVisibleVideoElement()
+  const shouldResumePlayback = Boolean(visiblePlayer && !visiblePlayer.paused)
+
+  for (const player of [input.desktopVideo, input.mobileVideo]) {
+    if (!player) {
+      continue
+    }
+    player.currentTime = targetSeconds
+  }
+
+  input.setPlaybackOffsetMs(clampedOffsetMs)
+
+  if (!(visiblePlayer && shouldResumePlayback)) {
+    return
+  }
+
+  visiblePlayer.play().catch((error: unknown) => {
+    reportNonFatalError(
+      "Failed to preserve playback after timeline seek interaction",
+      error
+    )
+  })
+}
+
+function loadMoreNetworkRequests(input: {
+  fetchNextPage: (options: { cancelRefetch: boolean }) => Promise<unknown>
+  hasNextPage: boolean | undefined
+  isFetching: boolean
+}): void {
+  if (!input.hasNextPage || input.isFetching) {
+    return
+  }
+
+  input.fetchNextPage({ cancelRefetch: false }).catch((error: unknown) => {
+    reportNonFatalError("Failed to fetch next network requests page", error)
+  })
+}
+
+function handleSidebarTabChange(input: {
+  setActiveTab: (
+    value: SidebarTab,
+    options: { shallow: boolean }
+  ) => Promise<unknown>
+  setHasOpenedDebuggerTimelineTab: (value: boolean) => void
+  setHasOpenedNetworkTab: (value: boolean) => void
+  tab: SidebarTab
+}): void {
+  if (input.tab === "actions" || input.tab === "console") {
+    input.setHasOpenedDebuggerTimelineTab(true)
+  }
+
+  if (input.tab === "network") {
+    input.setHasOpenedNetworkTab(true)
+  }
+
+  input.setActiveTab(input.tab, { shallow: false }).catch((error: unknown) => {
+    reportNonFatalError("Failed to sync sidebar tab state to URL", error)
+  })
+}
+
+function BugReportInternalStatusBanner(input: {
+  debuggerIngestionError: string | null
+  debuggerIngestionStatus: string
+  isRetrying: boolean
+  onRetry: () => void
+  submissionStatus: string
+}) {
+  return (
+    <div className="border-amber-200 border-b bg-amber-50 px-4 py-3 text-amber-950 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <p className="font-medium">
+            {formatSubmissionStatusLabel(input.submissionStatus)}
+          </p>
+          <p className="text-xs">
+            Debugger ingestion:{" "}
+            {formatDebuggerIngestionStatusLabel(input.debuggerIngestionStatus)}
+          </p>
+          {input.debuggerIngestionError ? (
+            <p className="text-xs">{input.debuggerIngestionError}</p>
+          ) : null}
+        </div>
+        {input.debuggerIngestionStatus ===
+        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.failed ? (
+          <Button
+            disabled={input.isRetrying}
+            onClick={input.onRetry}
+            size="sm"
+            variant="outline"
+          >
+            {input.isRetrying ? <Loader2 className="animate-spin" /> : null}
+            Retry debugger ingest
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function renderBugReportLoadedView(input: {
+  data: SharedBugReport
+  isEditSheetOpen: boolean
+  isMobileVideoHidden: boolean
+  isReady: boolean
+  onRetryDebuggerIngestion: () => void
+  onTimeUpdate: (value: number) => void
+  onToggleMobileVideoVisibility: () => void
+  onToggleEditSheet: (value: boolean) => void
+  refetch: () => Promise<unknown>
+  retryIngestionPending: boolean
+  sidebarProps: React.ComponentProps<typeof BugReportSidebar>
+  desktopVideoRef: React.RefObject<HTMLVideoElement | null>
+  mobileVideoRef: React.RefObject<HTMLVideoElement | null>
+}) {
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <BugReportHeader
+        data={input.data}
+        editAction={
+          input.data.canEdit ? (
+            <Button
+              onClick={() => input.onToggleEditSheet(true)}
+              size="sm"
+              variant="ghost"
+            >
+              <Edit />
+              <span className="sr-only">Edit</span>
+            </Button>
+          ) : null
+        }
+      />
+      {input.data.canEdit ? (
+        <EditBugReportSheet
+          onOpenChange={input.onToggleEditSheet}
+          onUpdated={async () => {
+            await input.refetch()
+          }}
+          open={input.isEditSheetOpen}
+          report={{
+            id: input.data.id,
+            title: input.data.title,
+            tags: input.data.tags,
+            status: input.data.status,
+            priority: input.data.priority,
+            visibility: input.data.visibility,
+          }}
+        />
+      ) : null}
+
+      {input.data.canEdit && !input.isReady ? (
+        <BugReportInternalStatusBanner
+          debuggerIngestionError={input.data.debuggerIngestionError}
+          debuggerIngestionStatus={input.data.debuggerIngestionStatus}
+          isRetrying={input.retryIngestionPending}
+          onRetry={input.onRetryDebuggerIngestion}
+          submissionStatus={input.data.submissionStatus}
+        />
+      ) : null}
+
+      <div className="flex flex-1 overflow-hidden">
+        <div className="hidden h-full w-full md:block">
+          <ResizablePanelGroup
+            className="h-full w-full"
+            orientation="horizontal"
+          >
+            <ResizablePanel minSize={CANVAS_MIN_WIDTH}>
+              <div className="flex h-full">
+                <BugReportCanvas
+                  data={input.data}
+                  onTimeUpdate={input.onTimeUpdate}
+                  ref={input.desktopVideoRef}
+                />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+
+            <ResizablePanel
+              defaultSize={SIDEBAR_DEFAULT_WIDTH}
+              maxSize={SIDEBAR_MAX_WIDTH}
+              minSize={SIDEBAR_MIN_WIDTH}
+            >
+              <BugReportSidebar {...input.sidebarProps} />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+
+        <div className="flex h-full w-full flex-col md:hidden">
+          {input.isMobileVideoHidden ? null : (
+            <div className="shrink-0 border-b">
+              <BugReportCanvas
+                compact
+                data={input.data}
+                onTimeUpdate={input.onTimeUpdate}
+                ref={input.mobileVideoRef}
+              />
+            </div>
+          )}
+          <div className="min-h-0 flex-1">
+            <BugReportSidebar
+              {...input.sidebarProps}
+              tabAction={
+                <button
+                  aria-label={
+                    input.isMobileVideoHidden ? "Show video" : "Hide video"
+                  }
+                  className="rounded-[4px] p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                  onClick={input.onToggleMobileVideoVisibility}
+                  type="button"
+                >
+                  {input.isMobileVideoHidden ? (
+                    <Eye className="h-3.5 w-3.5" />
+                  ) : (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              }
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function BugReportView({ id }: BugReportViewProps) {
@@ -135,10 +437,22 @@ export function BugReportView({ id }: BugReportViewProps) {
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
   const [selectedEntryIds, setSelectedEntryIds] =
     useState<SelectedEntryIds>(EMPTY_SELECTION)
+  const retryIngestionMutation = useMutation({
+    mutationFn: async () => client.bugReport.retryDebuggerIngestion({ id }),
+    onSuccess: async () => {
+      await refetch()
+      toast.success("Debugger ingestion retried")
+    },
+    onError: (mutationError) => {
+      toast.error(mutationError.message || "Failed to retry debugger ingestion")
+    },
+  })
 
   const showVideo =
     data?.attachmentType === "video" && Boolean(data.attachmentUrl)
   const metadataDurationMs = getMetadataDurationMs(data?.metadata)
+  const isReady =
+    data?.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
 
   const actionEntries = useMemo(
     () =>
@@ -217,94 +531,40 @@ export function BugReportView({ id }: BugReportViewProps) {
       [entry.kind]: entry.id,
     }))
 
-    if (!showVideo) {
-      return
-    }
-
-    if (typeof entry.offset !== "number") {
-      return
-    }
-
-    const clampedOffsetMs =
-      typeof metadataDurationMs === "number"
-        ? Math.min(entry.offset, metadataDurationMs)
-        : entry.offset
-    const targetSeconds = clampedOffsetMs / 1000
-    const visiblePlayer = getVisibleVideoElement()
-    const shouldResumePlayback = Boolean(visiblePlayer && !visiblePlayer.paused)
-    const knownPlayers = [desktopVideoRef.current, mobileVideoRef.current]
-    for (const player of knownPlayers) {
-      if (!player) {
-        continue
-      }
-      player.currentTime = targetSeconds
-    }
-
-    setPlaybackOffsetMs(clampedOffsetMs)
-
-    if (!(visiblePlayer && shouldResumePlayback)) {
-      return
-    }
-
-    visiblePlayer.play().catch((error: unknown) => {
-      reportNonFatalError(
-        "Failed to preserve playback after timeline seek interaction",
-        error
-      )
+    syncPlaybackToEntry({
+      desktopVideo: desktopVideoRef.current,
+      entry,
+      getVisibleVideoElement,
+      metadataDurationMs,
+      mobileVideo: mobileVideoRef.current,
+      setPlaybackOffsetMs,
+      showVideo: Boolean(showVideo),
     })
   }
 
   const handleLoadMoreNetworkRequests = () => {
-    if (!networkRequestsQuery.hasNextPage || networkRequestsQuery.isFetching) {
-      return
-    }
-
-    networkRequestsQuery
-      .fetchNextPage({ cancelRefetch: false })
-      .catch((error: unknown) => {
-        reportNonFatalError("Failed to fetch next network requests page", error)
-      })
+    loadMoreNetworkRequests({
+      fetchNextPage: networkRequestsQuery.fetchNextPage,
+      hasNextPage: networkRequestsQuery.hasNextPage,
+      isFetching: networkRequestsQuery.isFetching,
+    })
   }
 
   const handleTabChange = (tab: SidebarTab) => {
-    if (tab === "actions" || tab === "console") {
-      setHasOpenedDebuggerTimelineTab(true)
-    }
-
-    if (tab === "network") {
-      setHasOpenedNetworkTab(true)
-    }
-
-    setActiveTab(tab, { shallow: false }).catch((error: unknown) => {
-      reportNonFatalError("Failed to sync sidebar tab state to URL", error)
+    handleSidebarTabChange({
+      setActiveTab,
+      setHasOpenedDebuggerTimelineTab,
+      setHasOpenedNetworkTab,
+      tab,
     })
   }
 
   if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return renderBugReportLoadingState()
   }
 
   if (error || !data) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background p-4">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <AlertCircle className="h-12 w-12 text-destructive" />
-          <div>
-            <h1 className="font-semibold text-xl">Bug report not found</h1>
-            <p className="text-muted-foreground text-sm">
-              This share link is invalid or the report was removed.
-            </p>
-          </div>
-          <Link href="/">
-            <Button variant="outline">Back to dashboard</Button>
-          </Link>
-        </div>
-      </div>
-    )
+    return renderBugReportMissingState()
   }
 
   const sidebarProps = {
@@ -337,104 +597,21 @@ export function BugReportView({ id }: BugReportViewProps) {
     onEntrySelect: handleEntrySelect,
   } as const
 
-  return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <BugReportHeader
-        data={data}
-        editAction={
-          data.canEdit ? (
-            <Button
-              onClick={() => setIsEditSheetOpen(true)}
-              size="sm"
-              variant="ghost"
-            >
-              <Edit />
-              <span className="sr-only">Edit</span>
-            </Button>
-          ) : null
-        }
-      />
-      {data.canEdit ? (
-        <EditBugReportSheet
-          onOpenChange={setIsEditSheetOpen}
-          onUpdated={async () => {
-            await refetch()
-          }}
-          open={isEditSheetOpen}
-          report={{
-            id: data.id,
-            title: data.title,
-            tags: data.tags,
-            status: data.status,
-            priority: data.priority,
-            visibility: data.visibility,
-          }}
-        />
-      ) : null}
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Desktop View */}
-        <div className="hidden h-full w-full md:block">
-          <ResizablePanelGroup
-            className="h-full w-full"
-            orientation="horizontal"
-          >
-            <ResizablePanel minSize={CANVAS_MIN_WIDTH}>
-              <div className="flex h-full">
-                <BugReportCanvas
-                  data={data}
-                  onTimeUpdate={setPlaybackOffsetMs}
-                  ref={desktopVideoRef}
-                />
-              </div>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-
-            <ResizablePanel
-              defaultSize={SIDEBAR_DEFAULT_WIDTH}
-              maxSize={SIDEBAR_MAX_WIDTH}
-              minSize={SIDEBAR_MIN_WIDTH}
-            >
-              <BugReportSidebar {...sidebarProps} />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
-
-        {/* Mobile View */}
-        <div className="flex h-full w-full flex-col md:hidden">
-          {!isMobileVideoHidden && (
-            <div className="shrink-0 border-b">
-              <BugReportCanvas
-                compact
-                data={data}
-                onTimeUpdate={setPlaybackOffsetMs}
-                ref={mobileVideoRef}
-              />
-            </div>
-          )}
-          <div className="min-h-0 flex-1">
-            <BugReportSidebar
-              {...sidebarProps}
-              tabAction={
-                <button
-                  aria-label={isMobileVideoHidden ? "Show video" : "Hide video"}
-                  className="rounded-[4px] p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                  onClick={() => {
-                    setIsMobileVideoHidden((current) => !current)
-                  }}
-                  type="button"
-                >
-                  {isMobileVideoHidden ? (
-                    <Eye className="h-3.5 w-3.5" />
-                  ) : (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              }
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  return renderBugReportLoadedView({
+    data,
+    desktopVideoRef,
+    isEditSheetOpen,
+    isMobileVideoHidden,
+    isReady: Boolean(isReady),
+    mobileVideoRef,
+    onRetryDebuggerIngestion: () => retryIngestionMutation.mutate(),
+    onTimeUpdate: setPlaybackOffsetMs,
+    onToggleEditSheet: setIsEditSheetOpen,
+    onToggleMobileVideoVisibility: () => {
+      setIsMobileVideoHidden((current) => !current)
+    },
+    refetch,
+    retryIngestionPending: retryIngestionMutation.isPending,
+    sidebarProps,
+  })
 }

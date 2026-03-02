@@ -134,6 +134,9 @@ export function BugReportsList() {
               key={report.id}
               onReportUpdated={refetchAll}
               onRequestDelete={() => actionsState.setDeleteReportId(report.id)}
+              onRetryDebuggerIngestion={() =>
+                actionsState.retryIngestionMutation.mutate(report.id)
+              }
               onToggleSelection={(checked) =>
                 actionsState.toggleSelection(report.id, checked)
               }

@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm"
 import {
+  bigint,
   index,
   integer,
   jsonb,
@@ -28,6 +29,22 @@ export const bugReport = pgTable(
     attachmentUrl: text("attachment_url"), // video or screenshot URL
     attachmentKey: text("attachment_key"), // storage key/filename for delete operations
     attachmentType: text("attachment_type"), // "video" or "screenshot"
+    captureKey: text("capture_key"),
+    captureContentType: text("capture_content_type"),
+    captureSizeBytes: bigint("capture_size_bytes", { mode: "number" }),
+    captureUploadedAt: timestamp("capture_uploaded_at"),
+    thumbnailKey: text("thumbnail_key"),
+    thumbnailContentType: text("thumbnail_content_type"),
+    debuggerKey: text("debugger_key"),
+    debuggerContentEncoding: text("debugger_content_encoding"),
+    debuggerSizeBytes: bigint("debugger_size_bytes", { mode: "number" }),
+    debuggerUploadedAt: timestamp("debugger_uploaded_at"),
+    debuggerIngestionStatus: text("debugger_ingestion_status")
+      .default("completed")
+      .notNull(),
+    debuggerIngestionError: text("debugger_ingestion_error"),
+    debuggerIngestedAt: timestamp("debugger_ingested_at"),
+    submissionStatus: text("submission_status").default("ready").notNull(),
     visibility: text("visibility").default("private").notNull(), // public | private
     metadata: jsonb("metadata"),
     deviceInfo: jsonb("device_info"), // browser, os, viewport, etc.
@@ -40,6 +57,47 @@ export const bugReport = pgTable(
   (table) => [
     index("bug_report_organizationId_idx").on(table.organizationId),
     index("bug_report_reporterId_idx").on(table.reporterId),
+    index("bug_report_submissionStatus_idx").on(table.submissionStatus),
+    index("bug_report_debuggerIngestionStatus_idx").on(
+      table.debuggerIngestionStatus
+    ),
+  ]
+)
+
+export const bugReportUploadSession = pgTable(
+  "bug_report_upload_session",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    reporterId: text("reporter_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    title: text("title"),
+    description: text("description"),
+    priority: text("priority").default("none").notNull(),
+    tags: text("tags").array(),
+    url: text("url"),
+    attachmentType: text("attachment_type").notNull(),
+    visibility: text("visibility").default("private").notNull(),
+    captureKey: text("capture_key").notNull(),
+    captureContentType: text("capture_content_type").notNull(),
+    debuggerKey: text("debugger_key"),
+    metadata: jsonb("metadata"),
+    deviceInfo: jsonb("device_info"),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("bug_report_upload_session_organizationId_idx").on(
+      table.organizationId
+    ),
+    index("bug_report_upload_session_expiresAt_idx").on(table.expiresAt),
   ]
 )
 
@@ -116,6 +174,56 @@ export const bugReportStorageCleanup = pgTable(
     index("bug_report_storage_cleanup_nextAttemptAt_idx").on(
       table.nextAttemptAt
     ),
+  ]
+)
+
+export const bugReportArtifactCleanup = pgTable(
+  "bug_report_artifact_cleanup",
+  {
+    id: text("id").primaryKey(),
+    artifactKind: text("artifact_kind").notNull(),
+    objectKey: text("object_key").notNull().unique(),
+    attempts: integer("attempts").default(0).notNull(),
+    nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("bug_report_artifact_cleanup_nextAttemptAt_idx").on(
+      table.nextAttemptAt
+    ),
+  ]
+)
+
+export const bugReportIngestionJob = pgTable(
+  "bug_report_ingestion_job",
+  {
+    id: text("id").primaryKey(),
+    bugReportId: text("bug_report_id")
+      .notNull()
+      .references(() => bugReport.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    jobType: text("job_type").notNull(),
+    status: text("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("bug_report_ingestion_job_bugReportId_idx").on(table.bugReportId),
+    index("bug_report_ingestion_job_status_idx").on(table.status),
+    index("bug_report_ingestion_job_nextAttemptAt_idx").on(table.nextAttemptAt),
   ]
 )
 
