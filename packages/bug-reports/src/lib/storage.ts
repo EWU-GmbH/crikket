@@ -1,16 +1,18 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { db } from "@crikket/db"
-import { bugReportStorageCleanup } from "@crikket/db/schema/bug-report"
+import { bugReportArtifactCleanup } from "@crikket/db/schema/bug-report"
 import { env } from "@crikket/env/server"
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { and, asc, eq, lte } from "drizzle-orm"
 import { nanoid } from "nanoid"
+import type { BugReportArtifactKind } from "./artifact-storage"
 
 /**
  * Storage interface for cloud-only attachments (S3-compatible providers).
@@ -18,6 +20,17 @@ import { nanoid } from "nanoid"
 export interface StorageProvider {
   save(filename: string, data: Buffer | Blob): Promise<void>
   getUrl(filename: string): Promise<string>
+  createUploadUrl(input: {
+    filename: string
+    contentEncoding?: string
+    contentType?: string
+  }): Promise<{
+    headers: Record<string, string>
+    method: "PUT"
+    url: string
+  }>
+  exists(filename: string): Promise<boolean>
+  read(filename: string): Promise<Buffer>
   remove(filename: string): Promise<void>
 }
 
@@ -56,6 +69,8 @@ export function createS3StorageProvider(
     region: options.region,
     endpoint: options.endpoint,
     forcePathStyle: usePathStyle,
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
       accessKeyId: options.accessKeyId,
       secretAccessKey: options.secretAccessKey,
@@ -103,6 +118,66 @@ export function createS3StorageProvider(
       }
     },
     getUrl,
+    async createUploadUrl(input): Promise<{
+      headers: Record<string, string>
+      method: "PUT"
+      url: string
+    }> {
+      const resolvedContentType =
+        input.contentType ??
+        getMimeTypeFromFilename(input.filename) ??
+        undefined
+      const headers: Record<string, string> = {}
+
+      if (resolvedContentType) {
+        headers["content-type"] = resolvedContentType
+      }
+
+      if (input.contentEncoding) {
+        headers["content-encoding"] = input.contentEncoding
+      }
+
+      const url = await getSignedUrl(
+        client,
+        new PutObjectCommand({
+          Bucket: options.bucket,
+          Key: input.filename,
+          ContentEncoding: input.contentEncoding,
+          ContentType: resolvedContentType,
+        }),
+        {
+          expiresIn: PRESIGNED_GET_URL_TTL_SECONDS,
+        }
+      )
+
+      return {
+        url,
+        method: "PUT",
+        headers,
+      }
+    },
+    async exists(filename: string): Promise<boolean> {
+      try {
+        await client.send(
+          new HeadObjectCommand({
+            Bucket: options.bucket,
+            Key: filename,
+          })
+        )
+        return true
+      } catch {
+        return false
+      }
+    },
+    async read(filename: string): Promise<Buffer> {
+      const response = await client.send(
+        new GetObjectCommand({
+          Bucket: options.bucket,
+          Key: filename,
+        })
+      )
+      return await readBodyToBuffer(response.Body)
+    },
     async remove(filename: string): Promise<void> {
       try {
         await client.send(
@@ -131,9 +206,12 @@ export function getStorageProvider(): StorageProvider {
 export async function resolveAttachmentUrl(input: {
   attachmentKey: string | null
   attachmentUrl: string | null
+  captureKey?: string | null
 }): Promise<string | null> {
-  if (input.attachmentKey) {
-    return await storageProvider.getUrl(input.attachmentKey)
+  const objectKey = input.captureKey ?? input.attachmentKey
+
+  if (objectKey) {
+    return await storageProvider.getUrl(objectKey)
   }
 
   return input.attachmentUrl
@@ -168,25 +246,41 @@ export function generateFilename(type: "video" | "screenshot"): string {
 export async function removeAttachmentEventually(
   attachmentKey: string
 ): Promise<void> {
+  await removeArtifactEventually({
+    artifactKind: "capture",
+    objectKey: attachmentKey,
+  })
+}
+
+export async function removeArtifactEventually(input: {
+  artifactKind: BugReportArtifactKind
+  objectKey: string
+}): Promise<void> {
   try {
-    await storageProvider.remove(attachmentKey)
-    await clearCleanupEntry(attachmentKey)
+    await storageProvider.remove(input.objectKey)
+    await clearArtifactCleanupEntry(input.objectKey)
   } catch (error) {
     reportNonFatalError(
-      `Failed to remove attachment ${attachmentKey}; queued for retry`,
+      `Failed to remove ${input.artifactKind} artifact ${input.objectKey}; queued for retry`,
       error
     )
-    await queueAttachmentCleanup(attachmentKey, error)
+    await queueArtifactCleanup(input, error)
   }
 }
 
-export async function runAttachmentCleanupPass(options?: {
+export function runAttachmentCleanupPass(options?: {
+  limit?: number
+}): Promise<{ processed: number; removed: number; rescheduled: number }> {
+  return runArtifactCleanupPass(options)
+}
+
+export async function runArtifactCleanupPass(options?: {
   limit?: number
 }): Promise<{ processed: number; removed: number; rescheduled: number }> {
   const now = new Date()
-  const dueEntries = await db.query.bugReportStorageCleanup.findMany({
-    where: lte(bugReportStorageCleanup.nextAttemptAt, now),
-    orderBy: [asc(bugReportStorageCleanup.nextAttemptAt)],
+  const dueEntries = await db.query.bugReportArtifactCleanup.findMany({
+    where: lte(bugReportArtifactCleanup.nextAttemptAt, now),
+    orderBy: [asc(bugReportArtifactCleanup.nextAttemptAt)],
     limit: options?.limit ?? STORAGE_CLEANUP_DEFAULT_BATCH,
   })
 
@@ -195,12 +289,13 @@ export async function runAttachmentCleanupPass(options?: {
 
   for (const entry of dueEntries) {
     try {
-      await storageProvider.remove(entry.attachmentKey)
-      await clearCleanupEntry(entry.attachmentKey)
+      await storageProvider.remove(entry.objectKey)
+      await clearArtifactCleanupEntry(entry.objectKey)
       removed += 1
     } catch (error) {
-      await scheduleCleanupRetry({
-        attachmentKey: entry.attachmentKey,
+      await scheduleArtifactCleanupRetry({
+        artifactKind: entry.artifactKind as BugReportArtifactKind,
+        objectKey: entry.objectKey,
         attempts: entry.attempts + 1,
         error,
       })
@@ -260,47 +355,52 @@ export function extractStorageKeyFromUrl(url: string): string | null {
   }
 }
 
-async function queueAttachmentCleanup(
-  attachmentKey: string,
+async function queueArtifactCleanup(
+  input: {
+    artifactKind: BugReportArtifactKind
+    objectKey: string
+  },
   error: unknown
 ): Promise<void> {
   try {
-    const existing = await db.query.bugReportStorageCleanup.findFirst({
-      where: eq(bugReportStorageCleanup.attachmentKey, attachmentKey),
+    const existing = await db.query.bugReportArtifactCleanup.findFirst({
+      where: eq(bugReportArtifactCleanup.objectKey, input.objectKey),
       columns: {
         attempts: true,
       },
     })
 
     const attempts = (existing?.attempts ?? 0) + 1
-    await scheduleCleanupRetry({
-      attachmentKey,
+    await scheduleArtifactCleanupRetry({
+      artifactKind: input.artifactKind,
+      objectKey: input.objectKey,
       attempts,
       error,
     })
   } catch (queueError) {
     reportNonFatalError(
-      `Failed to queue attachment cleanup for ${attachmentKey}`,
+      `Failed to queue artifact cleanup for ${input.objectKey}`,
       queueError
     )
   }
 }
 
-async function clearCleanupEntry(attachmentKey: string): Promise<void> {
+async function clearArtifactCleanupEntry(objectKey: string): Promise<void> {
   try {
     await db
-      .delete(bugReportStorageCleanup)
-      .where(eq(bugReportStorageCleanup.attachmentKey, attachmentKey))
+      .delete(bugReportArtifactCleanup)
+      .where(eq(bugReportArtifactCleanup.objectKey, objectKey))
   } catch (error) {
     reportNonFatalError(
-      `Failed to clear storage cleanup entry for ${attachmentKey}`,
+      `Failed to clear storage cleanup entry for ${objectKey}`,
       error
     )
   }
 }
 
-async function scheduleCleanupRetry(input: {
-  attachmentKey: string
+async function scheduleArtifactCleanupRetry(input: {
+  artifactKind: BugReportArtifactKind
+  objectKey: string
   attempts: number
   error: unknown
 }): Promise<void> {
@@ -310,25 +410,25 @@ async function scheduleCleanupRetry(input: {
   const lastError = serializeCleanupError(input.error)
 
   await db
-    .insert(bugReportStorageCleanup)
+    .insert(bugReportArtifactCleanup)
     .values({
       id: nanoid(16),
-      attachmentKey: input.attachmentKey,
+      artifactKind: input.artifactKind,
+      objectKey: input.objectKey,
       attempts: input.attempts,
       nextAttemptAt,
       lastError,
     })
     .onConflictDoUpdate({
-      target: bugReportStorageCleanup.attachmentKey,
+      target: bugReportArtifactCleanup.objectKey,
       set: {
+        artifactKind: input.artifactKind,
         attempts: input.attempts,
         nextAttemptAt,
         lastError,
         updatedAt: new Date(),
       },
-      setWhere: and(
-        eq(bugReportStorageCleanup.attachmentKey, input.attachmentKey)
-      ),
+      setWhere: and(eq(bugReportArtifactCleanup.objectKey, input.objectKey)),
     })
 }
 
@@ -433,4 +533,40 @@ async function normalizeUploadBody(data: Blob | Buffer): Promise<Buffer> {
 
   const arrayBuffer = await data.arrayBuffer()
   return Buffer.from(arrayBuffer)
+}
+
+async function readBodyToBuffer(body: unknown): Promise<Buffer> {
+  if (!body) {
+    return Buffer.alloc(0)
+  }
+
+  if (body instanceof ReadableStream) {
+    const reader = body.getReader()
+    const chunks: Uint8Array[] = []
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+
+      if (value) {
+        chunks.push(value)
+      }
+    }
+
+    return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
+  }
+
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "transformToByteArray" in body &&
+    typeof body.transformToByteArray === "function"
+  ) {
+    const bytes = await body.transformToByteArray()
+    return Buffer.from(bytes)
+  }
+
+  throw new Error("Unsupported storage response body type.")
 }

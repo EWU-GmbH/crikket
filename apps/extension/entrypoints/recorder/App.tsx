@@ -30,7 +30,7 @@ import {
   getDebuggerSessionSnapshot,
   markDebuggerRecordingStarted,
 } from "@/lib/bug-report-debugger/client"
-import { client } from "@/lib/orpc"
+import { submitBugReportWithUploads } from "@/lib/bug-report-upload"
 import {
   buildCaptureContextSubmissionData,
   type DebuggerCaptureSummary,
@@ -313,7 +313,7 @@ function App() {
         ...captureContextSubmissionData.warnings,
       ]
 
-      const result = await client.bugReport.create({
+      const result = await submitBugReportWithUploads({
         attachment: blob,
         attachmentType: captureType,
         title: normalizeOptionalText(values.title, 200),
@@ -326,7 +326,8 @@ function App() {
           pageTitle: captureContextSubmissionData.normalizedPageTitle,
         },
         deviceInfo: getDeviceInfo(),
-        debugger: debuggerSubmission.payload,
+        debuggerPayload: debuggerSubmission.payload,
+        debuggerSummary: debuggerSubmission.summary,
       })
 
       if (debuggerSubmission.sessionId) {

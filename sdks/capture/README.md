@@ -78,8 +78,15 @@ Available options:
 - `host`: optional Crikket API origin; defaults to `https://api.crikket.io`
 - `autoMount`: mount automatically on init; defaults to `true`
 - `mountTarget`: custom element to mount into; defaults to `document.body`
-- `submitPath`: custom ingest path; defaults to `/api/embed/bug-reports`
+- `submitPath`: custom bug report base path; defaults to `/api/embed/bug-reports`
 - `zIndex`: custom widget stacking order
+
+`submitPath` is used as the base path for the capture control-plane flow. By
+default the SDK derives these routes from `/api/embed/bug-reports`:
+
+- `/api/embed/capture-token`
+- `/api/embed/bug-report-upload-session`
+- `/api/embed/bug-report-finalize`
 
 The package also exports runtime controls if you need them:
 

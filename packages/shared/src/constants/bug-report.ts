@@ -16,6 +16,27 @@ export const BUG_REPORT_VISIBILITY_OPTIONS = {
 export type BugReportVisibility =
   (typeof BUG_REPORT_VISIBILITY_OPTIONS)[keyof typeof BUG_REPORT_VISIBILITY_OPTIONS]
 
+export const BUG_REPORT_SUBMISSION_STATUS_OPTIONS = {
+  pendingUpload: "pending_upload",
+  processing: "processing",
+  ready: "ready",
+  failed: "failed",
+} as const
+
+export type BugReportSubmissionStatus =
+  (typeof BUG_REPORT_SUBMISSION_STATUS_OPTIONS)[keyof typeof BUG_REPORT_SUBMISSION_STATUS_OPTIONS]
+
+export const BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS = {
+  notUploaded: "not_uploaded",
+  pending: "pending",
+  processing: "processing",
+  completed: "completed",
+  failed: "failed",
+} as const
+
+export type BugReportDebuggerIngestionStatus =
+  (typeof BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS)[keyof typeof BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS]
+
 export const BUG_REPORT_SORT_OPTIONS = {
   newest: "newest",
   oldest: "oldest",

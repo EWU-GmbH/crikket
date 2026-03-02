@@ -21,6 +21,7 @@ STORAGE_ACCESS_KEY_ID
 STORAGE_SECRET_ACCESS_KEY
 STORAGE_REGION (required when STORAGE_ENDPOINT is unset)
 STORAGE_ENDPOINT (recommended for R2/custom S3 endpoints)
+STORAGE_PUBLIC_URL (optional)
 ```
 
 Set these in `apps/web/.env`:
@@ -85,10 +86,16 @@ BETTER_AUTH_COOKIE_DOMAIN=example.com
 ## Storage
 
 - Cloud storage is mandatory in all environments.
+- Bug report artifacts upload directly from the browser to storage.
+- Bucket CORS is required for browser uploads to work.
 - Configure `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, and `STORAGE_SECRET_ACCESS_KEY`.
 - Use `STORAGE_REGION` for AWS S3.
 - Use `STORAGE_ENDPOINT` for Cloudflare R2/custom S3-compatible storage.
 - Set `STORAGE_PUBLIC_URL` if you want stable public URLs instead of signed URLs.
+
+Full setup guide:
+
+- [Storage Setup](/docs/self-hosting/storage)
 
 ## Data Durability
 

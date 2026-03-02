@@ -64,30 +64,73 @@ function installFetchMock(
 }
 
 describe("default submit transport regression", () => {
-  it("mints a submit token, posts form data, and resolves relative share urls against the configured host", async () => {
+  it("mints a submit token, creates an upload session, uploads artifacts, and finalizes the report", async () => {
     const fetchMock = installFetchMock(
       (
         input: Parameters<typeof fetch>[0],
-        _init?: Parameters<typeof fetch>[1]
-      ) =>
-        Promise.resolve(
-          String(input).endsWith("/capture-token")
-            ? new Response(JSON.stringify({ token: "tok_123" }), {
+        init?: Parameters<typeof fetch>[1]
+      ) => {
+        if (String(input).endsWith("/capture-token")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ token: "tok_123" }), {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            })
+          )
+        }
+
+        if (String(input).endsWith("/bug-report-upload-session")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                bugReportId: "br_123",
+                captureUpload: {
+                  headers: {
+                    "content-type": "image/png",
+                  },
+                  method: "PUT",
+                  url: "https://storage.example.com/capture-upload",
+                },
+                debuggerUpload: {
+                  headers: {
+                    "content-type": "application/json",
+                  },
+                  method: "PUT",
+                  url: "https://storage.example.com/debugger-upload",
+                },
+                finalizeToken: "fin_123",
+              }),
+              {
                 status: 200,
                 headers: {
                   "content-type": "application/json",
                 },
-              })
-            : new Response(
-                JSON.stringify({ report: { id: "br_123", url: "/s/br_123" } }),
-                {
-                  status: 200,
-                  headers: {
-                    "content-type": "application/json",
-                  },
-                }
-              )
+              }
+            )
+          )
+        }
+
+        if (
+          String(input).startsWith("https://storage.example.com/") &&
+          init?.method === "PUT"
+        ) {
+          return Promise.resolve(new Response(null, { status: 200 }))
+        }
+
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ report: { id: "br_123", url: "/s/br_123" } }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          )
         )
+      }
     )
 
     const result = await defaultSubmitTransport(request)
@@ -102,7 +145,7 @@ describe("default submit transport regression", () => {
         },
       },
     })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(5)
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "https://api.crikket.io/api/embed/capture-token"
     )
@@ -116,22 +159,49 @@ describe("default submit transport regression", () => {
       mode: "cors",
     })
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://api.crikket.io/api/embed/bug-reports"
+      "https://api.crikket.io/api/embed/bug-report-upload-session"
     )
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       credentials: "omit",
       headers: {
+        "content-type": "application/json",
         "x-crikket-capture-token": "tok_123",
         "x-crikket-public-key": "crk_transport",
       },
       method: "POST",
       mode: "cors",
     })
-    const tokenBody = fetchMock.mock.calls[0]?.[1]?.body
-    expect(tokenBody).toBe("{}")
-    const body = fetchMock.mock.calls[1]?.[1]?.body
-    expect(body).toBeInstanceOf(FormData)
-    expect((body as FormData).get("visibility")).toBe("public")
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      "https://storage.example.com/capture-upload"
+    )
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      headers: {
+        "content-type": "image/png",
+      },
+      method: "PUT",
+    })
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      "https://storage.example.com/debugger-upload"
+    )
+    expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "PUT",
+    })
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      "https://api.crikket.io/api/embed/bug-report-finalize"
+    )
+    expect(fetchMock.mock.calls[4]?.[1]).toMatchObject({
+      credentials: "omit",
+      headers: {
+        "content-type": "application/json",
+        "x-crikket-capture-finalize-token": "fin_123",
+        "x-crikket-public-key": "crk_transport",
+      },
+      method: "POST",
+      mode: "cors",
+    })
   })
 
   it("surfaces json error payloads and falls back when the response is not json", async () => {

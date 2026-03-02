@@ -1,30 +1,89 @@
+import {
+  buildDebuggerArtifactForUpload,
+  type DirectUploadTarget,
+  uploadArtifactToStorage,
+} from "@crikket/capture-core/upload/client"
 import type { CaptureSubmitRequest, CaptureSubmitResult } from "../types"
 import { runTurnstileChallenge } from "./turnstile"
 
 const ABSOLUTE_HTTP_URL_REGEX = /^https?:\/\//
 const BUG_REPORTS_PATH_SUFFIX = "/bug-reports"
 const CAPTURE_CHALLENGE_REQUIRED_CODE = "CAPTURE_CHALLENGE_REQUIRED"
-const MAX_CAPTURE_REQUEST_BYTES = 95 * 1024 * 1024
-const MULTIPART_BASE_OVERHEAD_BYTES = 16 * 1024
-const MULTIPART_FIELD_OVERHEAD_BYTES = 256
-const MULTIPART_FILE_OVERHEAD_BYTES = 1024
 const FILE_SIZE_LIMIT_MESSAGE =
   "This recording is too large to upload reliably. Retry with a shorter recording or a screenshot."
 
 export async function defaultSubmitTransport(
   request: CaptureSubmitRequest
 ): Promise<CaptureSubmitResult> {
-  const submitUrl = `${request.config.host}${request.config.submitPath}`
-  const { formData } = buildSubmitFormData(request)
+  const uploadSessionRequest = buildUploadSessionRequest(request)
+  const uploadSessionUrl = `${request.config.host}${resolveUploadSessionPath(
+    request.config.submitPath
+  )}`
+  const finalizeUrl = `${request.config.host}${resolveFinalizePath(
+    request.config.submitPath
+  )}`
   const submitToken = await fetchCaptureSubmitToken(request)
-
-  const response = await fetch(submitUrl, {
+  const uploadSessionResponse = await fetch(uploadSessionUrl, {
     method: "POST",
     headers: {
       ...(submitToken ? { "x-crikket-capture-token": submitToken } : undefined),
+      "content-type": "application/json",
       "x-crikket-public-key": request.config.key,
     },
-    body: formData,
+    body: JSON.stringify(uploadSessionRequest),
+    credentials: "omit",
+    mode: "cors",
+  })
+
+  const uploadSessionPayload = await parseResponsePayload(uploadSessionResponse)
+  if (!uploadSessionResponse.ok) {
+    throw new Error(
+      getResponseErrorMessage(
+        uploadSessionPayload,
+        uploadSessionResponse.status
+      )
+    )
+  }
+
+  const uploadSession = parseUploadSessionPayload(uploadSessionPayload)
+  await uploadArtifactToStorage(
+    uploadSession.captureUpload,
+    request.report.media
+  )
+
+  const debuggerArtifact = await buildDebuggerArtifactForUpload(
+    request.report.debuggerPayload
+  )
+  if (uploadSession.debuggerUpload && debuggerArtifact) {
+    await uploadArtifactToStorage(
+      uploadSession.debuggerUpload,
+      debuggerArtifact.blob,
+      {
+        contentEncoding: debuggerArtifact.contentEncoding,
+      }
+    )
+  }
+
+  const response = await fetch(finalizeUrl, {
+    method: "POST",
+    headers: {
+      ...(uploadSession.finalizeToken
+        ? { "x-crikket-capture-finalize-token": uploadSession.finalizeToken }
+        : undefined),
+      "content-type": "application/json",
+      "x-crikket-public-key": request.config.key,
+    },
+    body: JSON.stringify({
+      id: uploadSession.bugReportId,
+      captureContentType:
+        request.report.media.type ||
+        (request.report.captureType === "screenshot"
+          ? "image/png"
+          : "video/webm"),
+      captureSizeBytes: request.report.media.size,
+      debuggerContentEncoding: debuggerArtifact?.contentEncoding,
+      debuggerSizeBytes: debuggerArtifact?.blob.size,
+    }),
     credentials: "omit",
     mode: "cors",
   })
@@ -44,73 +103,46 @@ export async function defaultSubmitTransport(
   }
 }
 
-function buildSubmitFormData(request: CaptureSubmitRequest): {
-  formData: FormData
+function buildUploadSessionRequest(request: CaptureSubmitRequest): {
+  attachmentType: CaptureSubmitRequest["report"]["captureType"]
+  captureContentType?: string
+  description: string
+  debuggerSummary: CaptureSubmitRequest["report"]["debuggerSummary"]
+  deviceInfo?: CaptureSubmitRequest["report"]["deviceInfo"]
+  hasDebuggerPayload: boolean
+  metadata: {
+    durationMs?: number
+    pageTitle: string
+    sdkVersion: string
+    submittedVia: string
+  }
+  priority: CaptureSubmitRequest["report"]["priority"]
+  title: string
+  url: string
+  visibility: CaptureSubmitRequest["report"]["visibility"]
 } {
-  const fileName =
-    request.report.captureType === "screenshot" ? "capture.png" : "capture.webm"
-  const serializedFields = new Map<string, string>([
-    ["title", request.report.title],
-    ["description", request.report.description],
-    ["priority", request.report.priority],
-    ["visibility", request.report.visibility],
-    ["captureType", request.report.captureType],
-    ["pageUrl", request.report.pageUrl],
-    ["pageTitle", request.report.pageTitle],
-    ["sdkVersion", request.report.sdkVersion],
-    ["durationMs", String(request.report.durationMs ?? "")],
-    ["deviceInfo", JSON.stringify(request.report.deviceInfo ?? {})],
-    ["debuggerSummary", JSON.stringify(request.report.debuggerSummary)],
-  ])
-
-  const serializedDebuggerPayload = request.report.debuggerPayload
-    ? JSON.stringify(request.report.debuggerPayload)
-    : null
-  if (serializedDebuggerPayload) {
-    serializedFields.set("debuggerPayload", serializedDebuggerPayload)
-  }
-
-  if (
-    estimateMultipartRequestSize({
-      fields: serializedFields,
-      file: {
-        contentType:
-          request.report.media.type ||
-          (request.report.captureType === "screenshot"
-            ? "image/png"
-            : "video/webm"),
-        name: fileName,
-        size: request.report.media.size,
-      },
-    }) > MAX_CAPTURE_REQUEST_BYTES
-  ) {
-    serializedFields.delete("debuggerPayload")
-  }
-
-  if (
-    estimateMultipartRequestSize({
-      fields: serializedFields,
-      file: {
-        contentType:
-          request.report.media.type ||
-          (request.report.captureType === "screenshot"
-            ? "image/png"
-            : "video/webm"),
-        name: fileName,
-        size: request.report.media.size,
-      },
-    }) > MAX_CAPTURE_REQUEST_BYTES
-  ) {
+  if (request.report.media.size > 95 * 1024 * 1024) {
     throw new Error(FILE_SIZE_LIMIT_MESSAGE)
   }
 
-  const formData = new FormData()
-  for (const [key, value] of serializedFields) {
-    formData.set(key, value)
+  return {
+    title: request.report.title,
+    description: request.report.description,
+    priority: request.report.priority,
+    visibility: request.report.visibility,
+    attachmentType: request.report.captureType,
+    url: request.report.pageUrl,
+    metadata: {
+      durationMs: request.report.durationMs ?? undefined,
+      pageTitle: request.report.pageTitle,
+      sdkVersion: request.report.sdkVersion,
+      submittedVia: "capture-sdk",
+    },
+    deviceInfo: request.report.deviceInfo,
+    captureContentType: request.report.media.type || undefined,
+    debuggerSummary: request.report.debuggerSummary,
+    hasDebuggerPayload: Boolean(request.report.debuggerPayload),
   }
-  formData.set("capture", request.report.media, fileName)
-
-  return { formData }
 }
 
 async function fetchCaptureSubmitToken(
@@ -268,36 +300,85 @@ function resolveCaptureTokenPath(submitPath: string): string {
   return `${normalizedSubmitPath}/token`
 }
 
+function resolveUploadSessionPath(submitPath: string): string {
+  const normalizedSubmitPath = submitPath.endsWith("/")
+    ? submitPath.slice(0, -1)
+    : submitPath
+
+  if (normalizedSubmitPath.endsWith(BUG_REPORTS_PATH_SUFFIX)) {
+    return `${normalizedSubmitPath.slice(0, -BUG_REPORTS_PATH_SUFFIX.length)}/bug-report-upload-session`
+  }
+
+  return `${normalizedSubmitPath}/upload-session`
+}
+
+function resolveFinalizePath(submitPath: string): string {
+  const normalizedSubmitPath = submitPath.endsWith("/")
+    ? submitPath.slice(0, -1)
+    : submitPath
+
+  if (normalizedSubmitPath.endsWith(BUG_REPORTS_PATH_SUFFIX)) {
+    return `${normalizedSubmitPath.slice(0, -BUG_REPORTS_PATH_SUFFIX.length)}/bug-report-finalize`
+  }
+
+  return `${normalizedSubmitPath}/finalize`
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function estimateMultipartRequestSize(input: {
-  fields: Map<string, string>
-  file: {
-    contentType: string
-    name: string
-    size: number
-  }
-}): number {
-  let totalBytes = MULTIPART_BASE_OVERHEAD_BYTES
-
-  for (const [key, value] of input.fields) {
-    totalBytes +=
-      getUtf8ByteLength(key) +
-      getUtf8ByteLength(value) +
-      MULTIPART_FIELD_OVERHEAD_BYTES
+function parseUploadSessionPayload(payload: unknown): {
+  bugReportId: string
+  captureUpload: DirectUploadTarget
+  debuggerUpload?: DirectUploadTarget
+  finalizeToken?: string
+} {
+  if (!isRecord(payload)) {
+    throw new Error("Capture upload session response was invalid.")
   }
 
-  totalBytes +=
-    input.file.size +
-    getUtf8ByteLength(input.file.name) +
-    getUtf8ByteLength(input.file.contentType) +
-    MULTIPART_FILE_OVERHEAD_BYTES
+  const bugReportId =
+    typeof payload.bugReportId === "string" ? payload.bugReportId : undefined
+  if (!bugReportId) {
+    throw new Error("Capture upload session response was missing bugReportId.")
+  }
 
-  return totalBytes
+  return {
+    bugReportId,
+    captureUpload: parseUploadTarget(payload.captureUpload),
+    debuggerUpload: payload.debuggerUpload
+      ? parseUploadTarget(payload.debuggerUpload)
+      : undefined,
+    finalizeToken:
+      typeof payload.finalizeToken === "string"
+        ? payload.finalizeToken
+        : undefined,
+  }
 }
 
-function getUtf8ByteLength(value: string): number {
-  return new TextEncoder().encode(value).length
+function parseUploadTarget(value: unknown): DirectUploadTarget {
+  if (
+    !isRecord(value) ||
+    value.method !== "PUT" ||
+    typeof value.url !== "string"
+  ) {
+    throw new Error("Capture upload target response was invalid.")
+  }
+
+  const headers = isRecord(value.headers)
+    ? Object.fromEntries(
+        Object.entries(value.headers).filter(
+          (entry): entry is [string, string] => {
+            return typeof entry[1] === "string"
+          }
+        )
+      )
+    : {}
+
+  return {
+    url: value.url,
+    method: "PUT",
+    headers,
+  }
 }

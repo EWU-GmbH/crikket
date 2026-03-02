@@ -114,11 +114,24 @@ export function useBugReportsActions({
     },
   })
 
+  const retryIngestionMutation = useMutation({
+    mutationFn: async (id: string) =>
+      client.bugReport.retryDebuggerIngestion({ id }),
+    onSuccess: async () => {
+      await refetchAll()
+      toast.success("Debugger ingestion retried")
+    },
+    onError: (mutationError) => {
+      toast.error(mutationError.message || "Failed to retry debugger ingestion")
+    },
+  })
+
   const isMutating =
     deleteMutation.isPending ||
     bulkDeleteMutation.isPending ||
     updateMutation.isPending ||
-    bulkUpdateMutation.isPending
+    bulkUpdateMutation.isPending ||
+    retryIngestionMutation.isPending
 
   const toggleSelection = (id: string, checked: boolean) => {
     setSelectedIds((previous) => {
@@ -189,6 +202,7 @@ export function useBugReportsActions({
 
     isMutating,
     updateMutation,
+    retryIngestionMutation,
     deleteMutation,
     bulkDeleteMutation,
     handleBulkDelete,

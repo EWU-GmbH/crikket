@@ -3,13 +3,16 @@ import { db } from "@crikket/db"
 import { bugReport } from "@crikket/db/schema/bug-report"
 import {
   BUG_REPORT_STATUS_OPTIONS,
+  BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
   BUG_REPORT_VISIBILITY_OPTIONS,
   type BugReportStatus,
+  type BugReportSubmissionStatus,
   type BugReportVisibility,
 } from "@crikket/shared/constants/bug-report"
 import { ORPCError } from "@orpc/server"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
+import { shouldExposeBugReportToViewer } from "./read-access-policy"
 
 const attachmentTypes = ["video", "screenshot"] as const
 export const visibilityValues = Object.values(
@@ -61,7 +64,9 @@ export const metadataInputSchema = z
       .int()
       .nonnegative()
       .max(24 * 60 * 60 * 1000)
-      .optional(),
+      .nullable()
+      .optional()
+      .transform((value) => value ?? undefined),
     thumbnailUrl: z.string().url().optional(),
     pageTitle: z.string().max(300).optional(),
     sdkVersion: z.string().max(40).optional(),
@@ -96,7 +101,7 @@ export function isStatus(
   )
 }
 
-function canAccessPrivateReport(input: {
+export function canAccessPrivateReport(input: {
   organizationId: string
   session?: SessionContext
 }): boolean {
@@ -125,6 +130,17 @@ export function assertVisibilityAccess(input: {
   }
 
   throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
+}
+
+export function isSubmissionStatus(
+  value: unknown
+): value is BugReportSubmissionStatus {
+  return (
+    typeof value === "string" &&
+    Object.values(BUG_REPORT_SUBMISSION_STATUS_OPTIONS).includes(
+      value as BugReportSubmissionStatus
+    )
+  )
 }
 
 export function normalizeDebuggerNetworkRequestPagination(input: {
@@ -169,12 +185,18 @@ export function formatDurationMs(durationMs: number): string {
 export async function assertBugReportAccessById(input: {
   id: string
   session?: SessionContext
-}): Promise<void> {
+}): Promise<{
+  canAccessUnready: boolean
+  organizationId: string
+  submissionStatus: BugReportSubmissionStatus
+  visibility: "public" | "private"
+}> {
   const report = await db.query.bugReport.findFirst({
     where: eq(bugReport.id, input.id),
     columns: {
       id: true,
       organizationId: true,
+      submissionStatus: true,
       visibility: true,
     },
   })
@@ -183,9 +205,36 @@ export async function assertBugReportAccessById(input: {
     throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
   }
 
-  assertVisibilityAccess({
+  const visibility = assertVisibilityAccess({
     organizationId: report.organizationId,
     session: input.session,
     visibility: report.visibility,
   })
+  const canAccessUnready = canAccessPrivateReport({
+    organizationId: report.organizationId,
+    session: input.session,
+  })
+  const submissionStatus = isSubmissionStatus(report.submissionStatus)
+    ? report.submissionStatus
+    : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
+
+  if (submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload) {
+    throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
+  }
+
+  if (
+    !shouldExposeBugReportToViewer({
+      canAccessUnready,
+      submissionStatus,
+    })
+  ) {
+    throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
+  }
+
+  return {
+    canAccessUnready,
+    organizationId: report.organizationId,
+    submissionStatus,
+    visibility,
+  }
 }

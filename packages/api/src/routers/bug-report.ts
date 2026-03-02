@@ -1,4 +1,3 @@
-import { createBugReport } from "@crikket/bug-reports/procedures/create-bug-report"
 import {
   deleteBugReport,
   deleteBugReportsBulk,
@@ -18,6 +17,11 @@ import {
   updateBugReportsBulk,
   updateBugReportVisibility,
 } from "@crikket/bug-reports/procedures/update-bug-reports"
+import {
+  createBugReportUpload,
+  finalizeBugReportUploadProcedure,
+  retryBugReportDebuggerIngestionProcedure,
+} from "@crikket/bug-reports/procedures/upload-bug-report"
 
 /**
  * Bug Report Router
@@ -25,7 +29,9 @@ import {
  */
 export const bugReportRouter = {
   list: listBugReports,
-  create: createBugReport,
+  createUpload: createBugReportUpload,
+  finalizeUpload: finalizeBugReportUploadProcedure,
+  retryDebuggerIngestion: retryBugReportDebuggerIngestionProcedure,
   getById: getBugReportById,
   getDebuggerEvents: getBugReportDebuggerEvents,
   getNetworkRequests: getBugReportNetworkRequests,

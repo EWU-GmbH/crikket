@@ -1,8 +1,12 @@
 import { db } from "@crikket/db"
 import { bugReport } from "@crikket/db/schema/bug-report"
 import {
+  BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SORT_OPTIONS,
+  BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+  type BugReportDebuggerIngestionStatus,
   type BugReportSort,
+  type BugReportSubmissionStatus,
 } from "@crikket/shared/constants/bug-report"
 import {
   PRIORITY_OPTIONS,
@@ -12,7 +16,18 @@ import {
   buildPaginationMeta,
   type PaginatedResult,
 } from "@crikket/shared/lib/server/pagination"
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm"
 import { z } from "zod"
 import { isExpiringSignedUrl, resolveAttachmentUrl } from "../lib/storage"
 import {
@@ -46,12 +61,15 @@ export interface BugReportListItem {
   thumbnail: string | undefined
   attachmentUrl: string | undefined
   attachmentType: "video" | "screenshot" | undefined
-  uploader: {
+  uploader?: {
     name: string
     avatar: string | undefined
   }
   visibility: "public" | "private"
   status: (typeof statusValues)[number]
+  submissionStatus: BugReportSubmissionStatus
+  debuggerIngestionStatus: BugReportDebuggerIngestionStatus
+  debuggerIngestionError: string | undefined
   priority: Priority
   tags: string[]
   url: string | undefined
@@ -169,9 +187,13 @@ interface BugReportListRecord {
   title: string | null
   description: string | null
   metadata: unknown
+  captureKey: string | null
   attachmentKey: string | null
   attachmentUrl: string | null
   attachmentType: string | null
+  debuggerIngestionError: string | null
+  debuggerIngestionStatus: string
+  submissionStatus: string
   visibility: string
   status: string
   priority: string
@@ -193,6 +215,7 @@ async function mapBugReportListItem(
     ? report.attachmentType
     : undefined
   const attachmentUrl = await resolveAttachmentUrl({
+    captureKey: report.captureKey,
     attachmentKey: report.attachmentKey,
     attachmentUrl: report.attachmentUrl,
   })
@@ -201,6 +224,13 @@ async function mapBugReportListItem(
     !isExpiringSignedUrl(metadata.thumbnailUrl)
       ? metadata.thumbnailUrl
       : undefined
+  const reporterName = report.reporter?.name?.trim()
+  const uploader = reporterName
+    ? {
+        name: reporterName,
+        avatar: report.reporter?.image ?? undefined,
+      }
+    : undefined
 
   return {
     id: report.id,
@@ -216,13 +246,33 @@ async function mapBugReportListItem(
     attachmentType,
     visibility: isVisibility(report.visibility) ? report.visibility : "private",
     status: isStatus(report.status) ? report.status : "open",
+    submissionStatus:
+      report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed ||
+      report.submissionStatus ===
+        BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload ||
+      report.submissionStatus ===
+        BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing ||
+      report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
+        ? report.submissionStatus
+        : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready,
+    debuggerIngestionStatus:
+      report.debuggerIngestionStatus ===
+        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.notUploaded ||
+      report.debuggerIngestionStatus ===
+        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.pending ||
+      report.debuggerIngestionStatus ===
+        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.processing ||
+      report.debuggerIngestionStatus ===
+        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.completed ||
+      report.debuggerIngestionStatus ===
+        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.failed
+        ? report.debuggerIngestionStatus
+        : BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.completed,
+    debuggerIngestionError: report.debuggerIngestionError ?? undefined,
     priority: normalizePriority(report.priority),
     tags: Array.isArray(report.tags) ? report.tags : [],
     url: report.url ?? undefined,
-    uploader: {
-      name: report.reporter?.name || "Unknown User",
-      avatar: report.reporter?.image ?? undefined,
-    },
+    uploader,
     createdAt: report.createdAt.toISOString(),
     updatedAt: report.updatedAt.toISOString(),
   }
@@ -235,7 +285,13 @@ export const listBugReports = protectedProcedure
       const activeOrgId = requireActiveOrgId(context.session)
       const { page, perPage, offset, limit } = normalizePagination(input)
 
-      const filters = [eq(bugReport.organizationId, activeOrgId)]
+      const filters = [
+        eq(bugReport.organizationId, activeOrgId),
+        ne(
+          bugReport.submissionStatus,
+          BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload
+        ),
+      ]
 
       if (input?.search) {
         const searchValue = `%${input.search}%`
