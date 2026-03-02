@@ -84,7 +84,6 @@ async function buildOnce(input: { emitDeclarations: boolean }): Promise<void> {
     "--format=esm",
     "--splitting",
     "--packages=bundle",
-    "--sourcemap=linked",
     "--outdir=./dist",
     ...esmBuildExternalPackages.map((value) => `--external=${value}`),
   ])
@@ -100,7 +99,6 @@ async function buildOnce(input: { emitDeclarations: boolean }): Promise<void> {
     "--target=browser",
     "--format=iife",
     "--packages=bundle",
-    "--sourcemap=linked",
     "--outfile=./dist/capture.global.js",
   ])
   if (globalBuildExitCode !== 0) {
