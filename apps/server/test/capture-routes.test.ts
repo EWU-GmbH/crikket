@@ -5,8 +5,11 @@ import { z } from "zod"
 const CAPTURE_TOKEN_ROUTE_PATH = fileURLToPath(
   new URL("../src/capture/token-route.ts", import.meta.url)
 )
-const CAPTURE_SUBMIT_ROUTE_PATH = fileURLToPath(
-  new URL("../src/capture/submit-route.ts", import.meta.url)
+const CAPTURE_UPLOAD_SESSION_ROUTE_PATH = fileURLToPath(
+  new URL("../src/capture/upload-session-route.ts", import.meta.url)
+)
+const CAPTURE_FINALIZE_ROUTE_PATH = fileURLToPath(
+  new URL("../src/capture/finalize-route.ts", import.meta.url)
 )
 const CAPTURE_SUBMIT_PROTECTION_PATH = fileURLToPath(
   new URL("../src/capture/protection.ts", import.meta.url)
@@ -86,24 +89,57 @@ mock.module("@crikket/bug-reports/lib/capture-public-key", () => ({
   },
 }))
 
-mock.module("@crikket/bug-reports/lib/create-bug-report", () => ({
-  createBugReportInputSchema: z.object({
-    attachment: z.instanceof(Blob),
-    attachmentType: z.string(),
+mock.module("@crikket/bug-reports/lib/upload-session", () => ({
+  createBugReportUploadSessionInputSchema: z.object({
+    attachmentType: z.enum(["video", "screenshot"]),
+    captureContentType: z.string().optional(),
     description: z.string().optional(),
+    debuggerSummary: z
+      .object({
+        actions: z.number().int().nonnegative(),
+        logs: z.number().int().nonnegative(),
+        networkRequests: z.number().int().nonnegative(),
+      })
+      .optional(),
     deviceInfo: z.unknown().optional(),
-    debugger: z.unknown().optional(),
+    hasDebuggerPayload: z.boolean().optional(),
     metadata: z.unknown().optional(),
     priority: z.string().optional(),
     title: z.string().optional(),
     url: z.string().optional(),
     visibility: z.string().optional(),
   }),
-  createBugReportRecord: async () => ({
+  finalizeBugReportUploadInputSchema: z.object({
+    id: z.string().min(1),
+    captureContentType: z.string().optional(),
+    captureSizeBytes: z.number().int().nonnegative().optional(),
+    debuggerContentEncoding: z.string().optional(),
+    debuggerSizeBytes: z.number().int().nonnegative().optional(),
+  }),
+  createBugReportUploadSession: async () => ({
+    bugReportId: "br_123",
+    captureUpload: {
+      headers: {
+        "content-type": "image/png",
+      },
+      key: "organizations/org_123/bug-reports/br_123/capture/screenshot.png",
+      method: "PUT" as const,
+      url: "https://storage.example.com/capture-upload",
+    },
+    debuggerUpload: {
+      headers: {
+        "content-type": "application/json",
+      },
+      key: "organizations/org_123/bug-reports/br_123/debugger/payload.json.gz",
+      method: "PUT" as const,
+      url: "https://storage.example.com/debugger-upload",
+    },
+  }),
+  finalizeBugReportUpload: async () => ({
     debugger: {
       dropped: { actions: 0, logs: 0, networkRequests: 0 },
-      persisted: { actions: 0, logs: 0, networkRequests: 0 },
-      requested: { actions: 0, logs: 0, networkRequests: 0 },
+      persisted: { actions: 1, logs: 2, networkRequests: 3 },
+      requested: { actions: 1, logs: 2, networkRequests: 3 },
       warnings: [],
     },
     id: "br_123",
@@ -160,6 +196,7 @@ mock.module("@upstash/ratelimit", () => ({
 afterEach(() => {
   activePublicKeyStatus = "active"
   activePublicKeyValue = publicKeyRecord.key
+  mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = "01234567890123456789012345678901"
   mockedEnv.TURNSTILE_SECRET_KEY = "turnstile_secret"
   mockedEnv.TURNSTILE_SITE_KEY = "turnstile_site"
   mockedEnv.UPSTASH_REDIS_REST_TOKEN = "upstash_token"
@@ -341,12 +378,13 @@ describe("capture token route", () => {
   })
 })
 
-describe("capture submit route", () => {
-  it("rejects protected submits that are missing a token", async () => {
-    const { handleCaptureSubmit } = await import(CAPTURE_SUBMIT_ROUTE_PATH)
-    const response = await handleCaptureSubmit({
-      request: createSubmitRequest(),
-      shareOrigin: "https://app.crikket.io",
+describe("capture upload session route", () => {
+  it("rejects create-upload-session requests that are missing a token", async () => {
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+    const response = await handleCaptureUploadSession({
+      request: createUploadSessionRequest(),
     })
 
     expect(response.status).toBe(401)
@@ -357,77 +395,132 @@ describe("capture submit route", () => {
     })
   })
 
-  it("rejects invalid submit tokens", async () => {
-    const { handleCaptureSubmit } = await import(CAPTURE_SUBMIT_ROUTE_PATH)
-    const response = await handleCaptureSubmit({
-      request: createSubmitRequest({
+  it("creates an upload session with a valid submit token", async () => {
+    const { createCaptureSubmitToken } = await import(
+      CAPTURE_SUBMIT_PROTECTION_PATH
+    )
+    const authorization = createCaptureSubmitToken({
+      keyId: publicKeyRecord.id,
+      origin: validOrigin,
+    })
+    expect(authorization).not.toBeNull()
+
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+    const response = await handleCaptureUploadSession({
+      request: createUploadSessionRequest({
         headers: {
-          "x-crikket-capture-token": "invalid.token",
+          "x-crikket-capture-token": authorization!.token,
         },
       }),
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      bugReportId: "br_123",
+      captureUpload: {
+        method: "PUT",
+        url: "https://storage.example.com/capture-upload",
+      },
+      debuggerUpload: {
+        method: "PUT",
+        url: "https://storage.example.com/debugger-upload",
+      },
+      finalizeToken: expect.any(String),
+    })
+  })
+
+  it("rejects the old value after key rotation and accepts the new one", async () => {
+    const oldKey = activePublicKeyValue
+    activePublicKeyValue = "crk_rotated"
+
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+    const oldKeyResponse = await handleCaptureUploadSession({
+      request: createUploadSessionRequest({
+        headers: {
+          "x-crikket-capture-token": "tok_legacy",
+          "x-crikket-public-key": oldKey,
+        },
+      }),
+    })
+
+    expect(oldKeyResponse.status).toBe(401)
+    await expect(oldKeyResponse.json()).resolves.toMatchObject({
+      data: {
+        reasonCode: "invalid_public_key",
+      },
+    })
+
+    const newKeyResponse = await handleCaptureUploadSession({
+      request: createUploadSessionRequest({
+        headers: {
+          "x-crikket-capture-token": "invalid.token",
+          "x-crikket-public-key": activePublicKeyValue,
+        },
+      }),
+    })
+
+    expect(newKeyResponse.status).toBe(401)
+    await expect(newKeyResponse.json()).resolves.toMatchObject({
+      data: {
+        reasonCode: "invalid_submit_token",
+      },
+    })
+  })
+})
+
+describe("capture finalize route", () => {
+  it("finalizes without a finalize token when capture protection is disabled", async () => {
+    mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = ""
+
+    const { handleCaptureFinalize } = await import(CAPTURE_FINALIZE_ROUTE_PATH)
+    const response = await handleCaptureFinalize({
+      request: createFinalizeRequest(),
+      shareOrigin: "https://app.crikket.io",
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      id: "br_123",
+      reportId: "br_123",
+      shareUrl: "https://app.crikket.io/s/br_123",
+    })
+  })
+
+  it("rejects finalize requests without a finalize token", async () => {
+    const { handleCaptureFinalize } = await import(CAPTURE_FINALIZE_ROUTE_PATH)
+    const response = await handleCaptureFinalize({
+      request: createFinalizeRequest(),
       shareOrigin: "https://app.crikket.io",
     })
 
     expect(response.status).toBe(401)
     await expect(response.json()).resolves.toMatchObject({
       data: {
-        reasonCode: "invalid_submit_token",
+        reasonCode: "missing_finalize_token",
       },
     })
   })
 
-  it("rejects replayed submit tokens", async () => {
-    const { createCaptureSubmitToken } = await import(
+  it("finalizes an uploaded report with a valid finalize token", async () => {
+    const { createCaptureFinalizeToken } = await import(
       CAPTURE_SUBMIT_PROTECTION_PATH
     )
-    const authorization = createCaptureSubmitToken({
+    const authorization = createCaptureFinalizeToken({
       keyId: publicKeyRecord.id,
       origin: validOrigin,
+      reportId: "br_123",
     })
     expect(authorization).not.toBeNull()
 
-    const { handleCaptureSubmit } = await import(CAPTURE_SUBMIT_ROUTE_PATH)
-    const firstResponse = await handleCaptureSubmit({
-      request: createSubmitRequest({
+    const { handleCaptureFinalize } = await import(CAPTURE_FINALIZE_ROUTE_PATH)
+    const response = await handleCaptureFinalize({
+      request: createFinalizeRequest({
         headers: {
-          "x-crikket-capture-token": authorization!.token,
-        },
-      }),
-      shareOrigin: "https://app.crikket.io",
-    })
-    expect(firstResponse.status).toBe(200)
-
-    const secondResponse = await handleCaptureSubmit({
-      request: createSubmitRequest({
-        headers: {
-          "x-crikket-capture-token": authorization!.token,
-        },
-      }),
-      shareOrigin: "https://app.crikket.io",
-    })
-    expect(secondResponse.status).toBe(401)
-    await expect(secondResponse.json()).resolves.toMatchObject({
-      data: {
-        reasonCode: "replayed_submit_token",
-      },
-    })
-  })
-
-  it("accepts a valid protected submit", async () => {
-    const { createCaptureSubmitToken } = await import(
-      CAPTURE_SUBMIT_PROTECTION_PATH
-    )
-    const authorization = createCaptureSubmitToken({
-      keyId: publicKeyRecord.id,
-      origin: validOrigin,
-    })
-    expect(authorization).not.toBeNull()
-
-    const { handleCaptureSubmit } = await import(CAPTURE_SUBMIT_ROUTE_PATH)
-    const response = await handleCaptureSubmit({
-      request: createSubmitRequest({
-        headers: {
-          "x-crikket-capture-token": authorization!.token,
+          "x-crikket-capture-finalize-token": authorization!.token,
         },
       }),
       shareOrigin: "https://app.crikket.io",
@@ -440,125 +533,58 @@ describe("capture submit route", () => {
       shareUrl: "https://app.crikket.io/s/br_123",
     })
   })
-
-  it("accepts a valid protected submit without redis", async () => {
-    mockedEnv.UPSTASH_REDIS_REST_TOKEN = undefined
-    mockedEnv.UPSTASH_REDIS_REST_URL = undefined
-
-    const { createCaptureSubmitToken } = await import(
-      CAPTURE_SUBMIT_PROTECTION_PATH
-    )
-    const authorization = createCaptureSubmitToken({
-      keyId: publicKeyRecord.id,
-      origin: validOrigin,
-    })
-    expect(authorization).not.toBeNull()
-
-    const { handleCaptureSubmit } = await import(CAPTURE_SUBMIT_ROUTE_PATH)
-    const response = await handleCaptureSubmit({
-      request: createSubmitRequest({
-        headers: {
-          "x-crikket-capture-token": authorization!.token,
-        },
-      }),
-      shareOrigin: "https://app.crikket.io",
-    })
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({
-      id: "br_123",
-      reportId: "br_123",
-    })
-  })
-
-  it("returns rate-limited when the submit bucket blocks the request", async () => {
-    rateLimitedPrefixes.add("crikket:rate-limit:capture:submit:key:key_123")
-    const { createCaptureSubmitToken } = await import(
-      CAPTURE_SUBMIT_PROTECTION_PATH
-    )
-    const authorization = createCaptureSubmitToken({
-      keyId: publicKeyRecord.id,
-      origin: validOrigin,
-    })
-    expect(authorization).not.toBeNull()
-
-    const { handleCaptureSubmit } = await import(CAPTURE_SUBMIT_ROUTE_PATH)
-    const response = await handleCaptureSubmit({
-      request: createSubmitRequest({
-        headers: {
-          "x-crikket-capture-token": authorization!.token,
-        },
-      }),
-      shareOrigin: "https://app.crikket.io",
-    })
-
-    expect(response.status).toBe(429)
-    await expect(response.json()).resolves.toMatchObject({
-      code: "TOO_MANY_REQUESTS",
-    })
-  })
-
-  it("rejects the old value after key rotation and accepts the new one", async () => {
-    const { handleCaptureToken } = await import(CAPTURE_TOKEN_ROUTE_PATH)
-    const oldKey = activePublicKeyValue
-    activePublicKeyValue = "crk_rotated"
-
-    const oldKeyResponse = await handleCaptureToken({
-      request: new Request("https://api.crikket.io/api/embed/capture-token", {
-        headers: {
-          origin: validOrigin,
-          "content-type": "application/json",
-          "x-crikket-public-key": oldKey,
-        },
-        method: "POST",
-      }),
-    })
-
-    expect(oldKeyResponse.status).toBe(401)
-    await expect(oldKeyResponse.json()).resolves.toMatchObject({
-      data: {
-        reasonCode: "invalid_public_key",
-      },
-    })
-
-    const newKeyResponse = await handleCaptureToken({
-      request: new Request("https://api.crikket.io/api/embed/capture-token", {
-        headers: {
-          origin: validOrigin,
-          "content-type": "application/json",
-          "x-crikket-public-key": activePublicKeyValue,
-        },
-        method: "POST",
-      }),
-    })
-
-    expect(newKeyResponse.status).toBe(403)
-    await expect(newKeyResponse.json()).resolves.toMatchObject({
-      code: "CAPTURE_CHALLENGE_REQUIRED",
-    })
-  })
 })
 
-function createSubmitRequest(input?: {
+function createUploadSessionRequest(input?: {
   headers?: Record<string, string>
 }): Request {
-  const formData = new FormData()
-  formData.set(
-    "capture",
-    new Blob(["capture"], { type: "image/png" }),
-    "capture.png"
+  return new Request(
+    "https://api.crikket.io/api/embed/bug-report-upload-session",
+    {
+      body: JSON.stringify({
+        attachmentType: "screenshot",
+        captureContentType: "image/png",
+        description: "Broken button",
+        debuggerSummary: {
+          actions: 1,
+          logs: 2,
+          networkRequests: 3,
+        },
+        hasDebuggerPayload: true,
+        metadata: {
+          durationMs: 0,
+          pageTitle: "Checkout",
+          sdkVersion: "1.0.0",
+        },
+        priority: "high",
+        title: "Checkout is broken",
+        url: "https://example.com/checkout",
+        visibility: "private",
+      }),
+      headers: {
+        "content-type": "application/json",
+        origin: validOrigin,
+        "x-crikket-public-key": publicKeyRecord.key,
+        ...input?.headers,
+      },
+      method: "POST",
+    }
   )
-  formData.set("captureType", "screenshot")
-  formData.set("description", "Broken button")
-  formData.set("pageTitle", "Checkout")
-  formData.set("pageUrl", "https://example.com/checkout")
-  formData.set("priority", "high")
-  formData.set("title", "Checkout is broken")
-  formData.set("visibility", "private")
+}
 
-  return new Request("https://api.crikket.io/api/embed/bug-reports", {
-    body: formData,
+function createFinalizeRequest(input?: {
+  headers?: Record<string, string>
+}): Request {
+  return new Request("https://api.crikket.io/api/embed/bug-report-finalize", {
+    body: JSON.stringify({
+      id: "br_123",
+      captureContentType: "image/png",
+      captureSizeBytes: 7,
+      debuggerContentEncoding: "gzip",
+      debuggerSizeBytes: 42,
+    }),
     headers: {
+      "content-type": "application/json",
       origin: validOrigin,
       "x-crikket-public-key": publicKeyRecord.key,
       ...input?.headers,

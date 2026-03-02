@@ -8,6 +8,7 @@ import { ORPCError } from "@orpc/server"
 import { eq } from "drizzle-orm"
 import { resolveAttachmentUrl } from "../lib/storage"
 import {
+  assertBugReportAccessById,
   assertVisibilityAccess,
   bugReportIdInputSchema,
   isStatus,
@@ -23,6 +24,11 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
 export const getBugReportById = o
   .input(bugReportIdInputSchema)
   .handler(async ({ context, input }) => {
+    await assertBugReportAccessById({
+      id: input.id,
+      session: context.session,
+    })
+
     const report = await db.query.bugReport.findFirst({
       where: eq(bugReport.id, input.id),
       with: {
@@ -53,6 +59,7 @@ export const getBugReportById = o
     const attachmentUrl = await resolveAttachmentUrl({
       attachmentKey: report.attachmentKey,
       attachmentUrl: report.attachmentUrl,
+      captureKey: report.captureKey,
     })
 
     return {
@@ -65,6 +72,9 @@ export const getBugReportById = o
       url: report.url,
       attachmentUrl,
       attachmentType: report.attachmentType,
+      submissionStatus: report.submissionStatus,
+      debuggerIngestionStatus: report.debuggerIngestionStatus,
+      debuggerIngestionError: report.debuggerIngestionError,
       visibility,
       canEdit,
       deviceInfo: report.deviceInfo,

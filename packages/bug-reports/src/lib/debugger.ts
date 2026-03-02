@@ -140,6 +140,20 @@ export interface BugReportNetworkRequestPayloadInput {
   requestId: string
 }
 
+export async function clearBugReportDebuggerData(
+  bugReportId: string
+): Promise<void> {
+  await Promise.all([
+    db
+      .delete(bugReportAction)
+      .where(eq(bugReportAction.bugReportId, bugReportId)),
+    db.delete(bugReportLog).where(eq(bugReportLog.bugReportId, bugReportId)),
+    db
+      .delete(bugReportNetworkRequest)
+      .where(eq(bugReportNetworkRequest.bugReportId, bugReportId)),
+  ])
+}
+
 export async function countBugReportNetworkRequests(input: {
   bugReportId: string
   search?: string

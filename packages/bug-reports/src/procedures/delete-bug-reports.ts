@@ -6,6 +6,7 @@ import { z } from "zod"
 
 import {
   extractStorageKeyFromUrl,
+  removeArtifactEventually,
   removeAttachmentEventually,
   runAttachmentCleanupPass,
 } from "../lib/storage"
@@ -29,6 +30,7 @@ export const deleteBugReport = protectedProcedure
     }
 
     const attachmentKey =
+      report.captureKey ??
       report.attachmentKey ??
       (report.attachmentUrl
         ? extractStorageKeyFromUrl(report.attachmentUrl)
@@ -46,6 +48,18 @@ export const deleteBugReport = protectedProcedure
     // Treat the database as the source of truth. Storage cleanup is best effort.
     if (attachmentKey) {
       await removeAttachmentEventually(attachmentKey)
+    }
+    if (report.debuggerKey) {
+      await removeArtifactEventually({
+        artifactKind: "debugger",
+        objectKey: report.debuggerKey,
+      })
+    }
+    if (report.thumbnailKey) {
+      await removeArtifactEventually({
+        artifactKind: "thumbnail",
+        objectKey: report.thumbnailKey,
+      })
     }
 
     await runAttachmentCleanupPass({ limit: 10 })
@@ -70,8 +84,11 @@ export const deleteBugReportsBulk = protectedProcedure
       ),
       columns: {
         id: true,
+        captureKey: true,
         attachmentKey: true,
         attachmentUrl: true,
+        debuggerKey: true,
+        thumbnailKey: true,
       },
     })
 
@@ -82,6 +99,7 @@ export const deleteBugReportsBulk = protectedProcedure
     const attachmentKeys = reports
       .map((report) => {
         return (
+          report.captureKey ??
           report.attachmentKey ??
           (report.attachmentUrl
             ? extractStorageKeyFromUrl(report.attachmentUrl)
@@ -101,8 +119,24 @@ export const deleteBugReportsBulk = protectedProcedure
       )
     )
 
-    for (const attachmentKey of attachmentKeys) {
-      await removeAttachmentEventually(attachmentKey)
+    for (const objectKey of attachmentKeys) {
+      await removeAttachmentEventually(objectKey)
+    }
+
+    for (const report of reports) {
+      if (report.debuggerKey) {
+        await removeArtifactEventually({
+          artifactKind: "debugger",
+          objectKey: report.debuggerKey,
+        })
+      }
+
+      if (report.thumbnailKey) {
+        await removeArtifactEventually({
+          artifactKind: "thumbnail",
+          objectKey: report.thumbnailKey,
+        })
+      }
     }
 
     await runAttachmentCleanupPass({ limit: 20 })

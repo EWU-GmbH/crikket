@@ -1,6 +1,10 @@
 "use client"
 
-import type { BugReportVisibility } from "@crikket/shared/constants/bug-report"
+import {
+  BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
+  BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+  type BugReportVisibility,
+} from "@crikket/shared/constants/bug-report"
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { Badge } from "@crikket/ui/components/ui/badge"
 import { Button } from "@crikket/ui/components/ui/button"
@@ -26,6 +30,7 @@ import {
   ImageIcon,
   MoreVertical,
   Play,
+  RotateCcw,
   Shield,
   Tag,
   Trash2,
@@ -55,6 +60,7 @@ interface BugReportCardProps {
   isMutating: boolean
   onToggleSelection: (checked: boolean) => void
   onRequestDelete: () => void
+  onRetryDebuggerIngestion: () => void
   onReportUpdated: () => Promise<void>
   onUpdateReport: (input: { visibility?: BugReportVisibility }) => void
 }
@@ -65,13 +71,25 @@ export function BugReportCard({
   isMutating,
   onToggleSelection,
   onRequestDelete,
+  onRetryDebuggerIngestion,
   onReportUpdated,
   onUpdateReport,
 }: BugReportCardProps) {
   const isPrivate = report.visibility === "private"
+  const isReady =
+    report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
+  const isRetryable =
+    report.debuggerIngestionStatus ===
+      BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.failed &&
+    report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
 
   const handleCopyLink = async () => {
+    if (!isReady) {
+      toast.error("Share link is unavailable until the report is ready")
+      return
+    }
+
     const shareUrl = `${window.location.origin}/s/${report.id}`
     try {
       await navigator.clipboard.writeText(shareUrl)
@@ -128,6 +146,7 @@ export function BugReportCard({
                   Copy link
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  disabled={!isReady}
                   onClick={() =>
                     window.open(`/s/${report.id}`, "_blank", "noopener")
                   }
@@ -135,6 +154,12 @@ export function BugReportCard({
                   <ExternalLink className="size-4" />
                   Open in new tab
                 </DropdownMenuItem>
+                {isRetryable ? (
+                  <DropdownMenuItem onClick={onRetryDebuggerIngestion}>
+                    <RotateCcw className="size-4" />
+                    Retry debugger ingest
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Privacy</DropdownMenuLabel>
@@ -215,6 +240,16 @@ export function BugReportCard({
           <div className="flex flex-wrap items-center gap-1.5">
             <Chip>{formatStatusLabel(report.status)}</Chip>
             <Chip>{formatPriorityLabel(report.priority)}</Chip>
+            {report.submissionStatus !==
+            BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready ? (
+              <Chip>
+                {formatSubmissionStatusLabel(report.submissionStatus)}
+              </Chip>
+            ) : null}
+            {report.debuggerIngestionStatus ===
+            BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.failed ? (
+              <Chip>Debugger ingest failed</Chip>
+            ) : null}
             {report.tags.slice(0, 2).map((tag) => (
               <Chip key={tag}>
                 <Tag className="size-3" />
@@ -225,6 +260,12 @@ export function BugReportCard({
               <Chip>+{report.tags.length - 2}</Chip>
             ) : null}
           </div>
+
+          {report.debuggerIngestionError ? (
+            <p className="line-clamp-2 text-amber-700 text-xs">
+              {report.debuggerIngestionError}
+            </p>
+          ) : null}
         </div>
       </CardContent>
       <EditBugReportSheet
@@ -242,6 +283,21 @@ export function BugReportCard({
       />
     </Card>
   )
+}
+
+function formatSubmissionStatusLabel(
+  status: BugReportCardProps["report"]["submissionStatus"]
+) {
+  switch (status) {
+    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload:
+      return "Pending upload"
+    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing:
+      return "Processing"
+    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed:
+      return "Submission failed"
+    default:
+      return "Ready"
+  }
 }
 
 function MediaTypeBadge({
