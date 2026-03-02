@@ -31,6 +31,8 @@ const esmBuildEntrypoints = [
 ] as const
 const esmBuildExternalPackages = [
   "react",
+  "react/jsx-dev-runtime",
+  "react/jsx-runtime",
   "react-dom",
   "react-dom/client",
 ] as const
@@ -76,6 +78,7 @@ async function buildOnce(input: { emitDeclarations: boolean }): Promise<void> {
   const esmBuildExitCode = await runCommand([
     "bun",
     "build",
+    "--production",
     ...esmBuildEntrypoints,
     "--target=browser",
     "--format=esm",
@@ -92,6 +95,7 @@ async function buildOnce(input: { emitDeclarations: boolean }): Promise<void> {
   const globalBuildExitCode = await runCommand([
     "bun",
     "build",
+    "--production",
     "./src/global.ts",
     "--target=browser",
     "--format=iife",
@@ -359,14 +363,23 @@ async function pathExists(filePath: string): Promise<boolean> {
 }
 
 function runCommand(args: string[]): Promise<number> {
+  const [command, ...commandArgs] = args
+  if (!command) {
+    return Promise.reject(new Error("No command provided to runCommand."))
+  }
+
   return new Promise((resolve, reject) => {
-    const child = spawn(args[0], args.slice(1), {
-      shell: false,
-      stdio: "inherit",
-    })
+    const child: import("node:child_process").ChildProcess = spawn(
+      command,
+      commandArgs,
+      {
+        shell: false,
+        stdio: "inherit",
+      }
+    )
 
     child.on("error", reject)
-    child.on("exit", (code) => {
+    child.on("exit", (code: number | null) => {
       resolve(code ?? 1)
     })
   })

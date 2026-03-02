@@ -48,7 +48,7 @@
   "scripts": {
     "build": "bun run ./scripts/build.ts",
     "dev": "bun run ./scripts/build.ts --watch",
-    "check-types": "tsc --noEmit -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "test": "bun test test"
   },
   "peerDependencies": {
