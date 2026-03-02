@@ -50,21 +50,6 @@ function buildPayloadTooLargeResponse(maxBytes: number): Response {
   )
 }
 
-function buildLengthRequiredResponse(): Response {
-  return new Response(
-    JSON.stringify({
-      code: "LENGTH_REQUIRED",
-      message: "Content-Length header is required for RPC POST requests.",
-    }),
-    {
-      status: 411,
-      headers: {
-        "content-type": "application/json",
-      },
-    }
-  )
-}
-
 function selectStrictestRateLimitHeaders(
   current: RateLimitHeaders,
   incoming: RateLimitHeaders
@@ -178,13 +163,14 @@ export const rpcHandler = new RPCHandler(appRouter, {
 
 app.use("/*", async (c, next) => {
   if (c.req.method === "POST" && c.req.path.startsWith("/rpc/")) {
-    const contentLength = parseHeaderNumber(
-      c.req.raw.headers.get("content-length") ?? undefined
-    )
-    if (contentLength === null) {
-      return buildLengthRequiredResponse()
-    }
-    if (contentLength > MAX_RPC_REQUEST_BODY_BYTES) {
+    const contentLengthHeader = c.req.raw.headers.get("content-length")
+    const contentLength = parseHeaderNumber(contentLengthHeader ?? undefined)
+
+    if (
+      contentLengthHeader !== null &&
+      contentLength !== null &&
+      contentLength > MAX_RPC_REQUEST_BODY_BYTES
+    ) {
       return buildPayloadTooLargeResponse(MAX_RPC_REQUEST_BODY_BYTES)
     }
   }
