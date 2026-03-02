@@ -13,7 +13,7 @@ import {
   normalizeSubmitPath,
   normalizeZIndex,
 } from "../utils"
-import type { CaptureSdkRuntime } from "./capture-runtime"
+import { CaptureSdkRuntime } from "./capture-runtime"
 
 type MountedCaptureLauncher = ReturnType<typeof mountCaptureLauncher>
 
@@ -201,10 +201,12 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
     return runtimePromise
   }
 
-  private loadEagerRuntimeModule(): Promise<
-    typeof import("./capture-runtime")
-  > {
-    return import("./capture-runtime")
+  private loadEagerRuntimeModule(): Promise<{
+    CaptureSdkRuntime: typeof CaptureSdkRuntime
+  }> {
+    return Promise.resolve({
+      CaptureSdkRuntime,
+    })
   }
 
   private getInitOptions(): CaptureInitOptions {
