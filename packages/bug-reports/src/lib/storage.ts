@@ -14,9 +14,6 @@ import { and, asc, eq, lte } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import type { BugReportArtifactKind } from "./artifact-storage"
 
-/**
- * Storage interface for cloud-only bug report artifacts (S3-compatible providers).
- */
 export interface StorageProvider {
   save(filename: string, data: Buffer | Blob): Promise<void>
   getUrl(filename: string): Promise<string>
@@ -57,9 +54,6 @@ const PRESIGNED_GET_URL_TTL_SECONDS = 604_800
 
 type CloudStorageProvider = keyof typeof CLOUD_STORAGE_PROVIDER_CONFIG
 
-/**
- * S3-compatible storage provider (AWS S3, Cloudflare R2)
- */
 export function createS3StorageProvider(
   options: S3StorageOptions
 ): StorageProvider {

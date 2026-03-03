@@ -37,7 +37,6 @@ export const deleteBugReport = protectedProcedure
         )
       )
 
-    // Treat the database as the source of truth. Storage cleanup is best effort.
     if (report.captureKey) {
       await removeCaptureArtifactEventually(report.captureKey)
     }
@@ -90,7 +89,6 @@ export const deleteBugReportsBulk = protectedProcedure
       .map((report) => report.captureKey)
       .filter((value): value is string => typeof value === "string")
 
-    // Persist deletion first, then clean up objects in storage.
     await db.delete(bugReport).where(
       and(
         eq(bugReport.organizationId, activeOrgId),

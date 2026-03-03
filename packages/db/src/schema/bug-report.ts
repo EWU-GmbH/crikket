@@ -24,7 +24,7 @@ export const bugReport = pgTable(
     description: text("description"),
     status: text("status").default("open").notNull(), // open, in_progress, resolved, closed
     priority: text("priority").default("none").notNull(), // none, low, medium, high, critical
-    tags: text("tags").array(), // optional tags for categorization
+    tags: text("tags").array(),
     url: text("url"),
     attachmentType: text("attachment_type"), // "video" or "screenshot"
     captureKey: text("capture_key"),
@@ -110,7 +110,7 @@ export const bugReportLog = pgTable(
     message: text("message").notNull(),
     timestamp: timestamp("timestamp").notNull(),
     offset: integer("offset"), // ms from start of recording
-    metadata: jsonb("metadata"), // Any extra info or stack trace
+    metadata: jsonb("metadata"),
   },
   (table) => [index("bug_report_log_bugReportId_idx").on(table.bugReportId)]
 )
