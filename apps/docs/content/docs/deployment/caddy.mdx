@@ -41,7 +41,7 @@ Recommended baseline:
 
 ## DNS Layout
 
-Point both records at the VPS before you run the wizard, or immediately after it finishes.
+Create both DNS records before you start the stack. Do not rely on creating them after Caddy is already trying to issue certificates.
 
 Example:
 
@@ -52,13 +52,23 @@ api.example.com  ->  your VPS public IP
 
 If your DNS provider supports proxying, start with plain DNS-only records until Caddy has issued certificates successfully.
 
+Wait for public DNS propagation before you answer `yes` to the wizard's final "Start Crikket now with Docker Compose" prompt.
+
+Recommended checks:
+
+```bash
+dig @1.1.1.1 +short app.example.com
+dig @1.1.1.1 +short api.example.com
+```
+
+Both commands should return your VPS public IP.
+
 <Steps>
   <Step>
 
   ### Connect to the VPS and Clone the Repo
 
   ```bash
-  ssh root@your-server-ip
   git clone https://github.com/redpangilinan/crikket
   cd crikket
   ```
