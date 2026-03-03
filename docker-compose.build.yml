@@ -9,9 +9,6 @@ services:
   migrate:
     image: crikket-server:local
     pull_policy: never
-    build:
-      context: .
-      dockerfile: apps/server/Dockerfile
 
   web:
     image: crikket-web:local
