@@ -218,10 +218,6 @@ export async function assertBugReportAccessById(input: {
     ? report.submissionStatus
     : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
 
-  if (submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload) {
-    throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
-  }
-
   if (
     !shouldExposeBugReportToViewer({
       canAccessUnready,

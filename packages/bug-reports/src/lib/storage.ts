@@ -15,7 +15,7 @@ import { nanoid } from "nanoid"
 import type { BugReportArtifactKind } from "./artifact-storage"
 
 /**
- * Storage interface for cloud-only attachments (S3-compatible providers).
+ * Storage interface for cloud-only bug report artifacts (S3-compatible providers).
  */
 export interface StorageProvider {
   save(filename: string, data: Buffer | Blob): Promise<void>
@@ -203,18 +203,14 @@ export function getStorageProvider(): StorageProvider {
   return storageProvider
 }
 
-export async function resolveAttachmentUrl(input: {
-  attachmentKey: string | null
-  attachmentUrl: string | null
-  captureKey?: string | null
+export async function resolveCaptureUrl(input: {
+  captureKey: string | null
 }): Promise<string | null> {
-  const objectKey = input.captureKey ?? input.attachmentKey
-
-  if (objectKey) {
-    return await storageProvider.getUrl(objectKey)
+  if (!input.captureKey) {
+    return null
   }
 
-  return input.attachmentUrl
+  return await storageProvider.getUrl(input.captureKey)
 }
 
 export function isExpiringSignedUrl(url: string): boolean {
@@ -233,22 +229,12 @@ export function isExpiringSignedUrl(url: string): boolean {
   }
 }
 
-/**
- * Generate a unique filename with original extension preserved
- */
-export function generateFilename(type: "video" | "screenshot"): string {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 8)
-  const ext = type === "video" ? "webm" : "png"
-  return `${type}_${timestamp}_${random}.${ext}`
-}
-
-export async function removeAttachmentEventually(
-  attachmentKey: string
+export async function removeCaptureArtifactEventually(
+  captureKey: string
 ): Promise<void> {
   await removeArtifactEventually({
     artifactKind: "capture",
-    objectKey: attachmentKey,
+    objectKey: captureKey,
   })
 }
 
@@ -266,12 +252,6 @@ export async function removeArtifactEventually(input: {
     )
     await queueArtifactCleanup(input, error)
   }
-}
-
-export function runAttachmentCleanupPass(options?: {
-  limit?: number
-}): Promise<{ processed: number; removed: number; rescheduled: number }> {
-  return runArtifactCleanupPass(options)
 }
 
 export async function runArtifactCleanupPass(options?: {
@@ -307,51 +287,6 @@ export async function runArtifactCleanupPass(options?: {
     processed: dueEntries.length,
     removed,
     rescheduled,
-  }
-}
-
-export function extractStorageKeyFromUrl(url: string): string | null {
-  try {
-    const parsed = new URL(url)
-    const pathSegments = getPathSegments(parsed.pathname)
-
-    if (pathSegments.length === 0) {
-      return null
-    }
-
-    if (env.STORAGE_PUBLIC_URL) {
-      const publicBase = new URL(env.STORAGE_PUBLIC_URL)
-      const publicBaseSegments = getPathSegments(publicBase.pathname)
-
-      if (
-        parsed.origin === publicBase.origin &&
-        startsWithSegments(pathSegments, publicBaseSegments)
-      ) {
-        const keySegments = pathSegments.slice(publicBaseSegments.length)
-        return keySegments.length > 0 ? decodePathSegments(keySegments) : null
-      }
-
-      return null
-    }
-
-    const bucketHostPrefix = `${env.STORAGE_BUCKET}.`
-    if (parsed.hostname.startsWith(bucketHostPrefix)) {
-      return decodePathSegments(pathSegments)
-    }
-
-    if (pathSegments[0] === env.STORAGE_BUCKET) {
-      const keySegments = pathSegments.slice(1)
-      return keySegments.length > 0 ? decodePathSegments(keySegments) : null
-    }
-
-    return null
-  } catch (error) {
-    reportNonFatalError(
-      "Failed to extract storage key from attachment URL",
-      { error, url },
-      { once: true }
-    )
-    return null
   }
 }
 
@@ -481,28 +416,11 @@ function getCloudStorageConfig(): S3StorageOptions {
     publicUrl: env.STORAGE_PUBLIC_URL,
   }
 }
-
 function resolveCloudProvider(
   endpoint: string | undefined
 ): CloudStorageProvider {
   if (endpoint?.includes(".r2.cloudflarestorage.com")) return "r2"
   return "s3"
-}
-
-function getPathSegments(pathname: string): string[] {
-  return pathname.split("/").filter((segment) => segment.length > 0)
-}
-
-function startsWithSegments(value: string[], prefix: string[]): boolean {
-  if (prefix.length === 0) {
-    return true
-  }
-
-  if (prefix.length > value.length) {
-    return false
-  }
-
-  return prefix.every((segment, index) => value[index] === segment)
 }
 
 function trimTrailingSlash(value: string): string {
@@ -514,10 +432,6 @@ function encodePathSegment(filename: string): string {
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/")
-}
-
-function decodePathSegments(pathSegments: string[]): string {
-  return pathSegments.map((segment) => decodeURIComponent(segment)).join("/")
 }
 
 function getMimeTypeFromFilename(filename: string): string | null {

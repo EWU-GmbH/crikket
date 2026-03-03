@@ -26,8 +26,6 @@ export const bugReport = pgTable(
     priority: text("priority").default("none").notNull(), // none, low, medium, high, critical
     tags: text("tags").array(), // optional tags for categorization
     url: text("url"),
-    attachmentUrl: text("attachment_url"), // video or screenshot URL
-    attachmentKey: text("attachment_key"), // storage key/filename for delete operations
     attachmentType: text("attachment_type"), // "video" or "screenshot"
     captureKey: text("capture_key"),
     captureContentType: text("capture_content_type"),
@@ -154,27 +152,6 @@ export const bugReportAction = pgTable(
     metadata: jsonb("metadata"), // coordinates, key pressed, etc.
   },
   (table) => [index("bug_report_action_bugReportId_idx").on(table.bugReportId)]
-)
-
-export const bugReportStorageCleanup = pgTable(
-  "bug_report_storage_cleanup",
-  {
-    id: text("id").primaryKey(),
-    attachmentKey: text("attachment_key").notNull().unique(),
-    attempts: integer("attempts").default(0).notNull(),
-    nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
-    lastError: text("last_error"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    index("bug_report_storage_cleanup_nextAttemptAt_idx").on(
-      table.nextAttemptAt
-    ),
-  ]
 )
 
 export const bugReportArtifactCleanup = pgTable(

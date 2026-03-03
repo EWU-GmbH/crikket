@@ -289,8 +289,6 @@ function formatSubmissionStatusLabel(
   status: BugReportCardProps["report"]["submissionStatus"]
 ) {
   switch (status) {
-    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload:
-      return "Pending upload"
     case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing:
       return "Processing"
     case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed:

@@ -17,7 +17,6 @@ export type BugReportVisibility =
   (typeof BUG_REPORT_VISIBILITY_OPTIONS)[keyof typeof BUG_REPORT_VISIBILITY_OPTIONS]
 
 export const BUG_REPORT_SUBMISSION_STATUS_OPTIONS = {
-  pendingUpload: "pending_upload",
   processing: "processing",
   ready: "ready",
   failed: "failed",

@@ -74,8 +74,6 @@ function getMetadataDurationMs(metadata: unknown): number | null {
 
 function formatSubmissionStatusLabel(status: string): string {
   switch (status) {
-    case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload:
-      return "Waiting for upload completion"
     case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing:
       return "Processing uploaded artifacts"
     case BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed:

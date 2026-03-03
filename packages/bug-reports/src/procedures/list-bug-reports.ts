@@ -16,20 +16,9 @@ import {
   buildPaginationMeta,
   type PaginatedResult,
 } from "@crikket/shared/lib/server/pagination"
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  ilike,
-  inArray,
-  ne,
-  or,
-  sql,
-} from "drizzle-orm"
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { z } from "zod"
-import { isExpiringSignedUrl, resolveAttachmentUrl } from "../lib/storage"
+import { isExpiringSignedUrl, resolveCaptureUrl } from "../lib/storage"
 import {
   formatDurationMs,
   isAttachmentType,
@@ -188,8 +177,6 @@ interface BugReportListRecord {
   description: string | null
   metadata: unknown
   captureKey: string | null
-  attachmentKey: string | null
-  attachmentUrl: string | null
   attachmentType: string | null
   debuggerIngestionError: string | null
   debuggerIngestionStatus: string
@@ -214,10 +201,8 @@ async function mapBugReportListItem(
   const attachmentType = isAttachmentType(report.attachmentType)
     ? report.attachmentType
     : undefined
-  const attachmentUrl = await resolveAttachmentUrl({
+  const attachmentUrl = await resolveCaptureUrl({
     captureKey: report.captureKey,
-    attachmentKey: report.attachmentKey,
-    attachmentUrl: report.attachmentUrl,
   })
   const thumbnailUrl =
     typeof metadata?.thumbnailUrl === "string" &&
@@ -248,8 +233,6 @@ async function mapBugReportListItem(
     status: isStatus(report.status) ? report.status : "open",
     submissionStatus:
       report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed ||
-      report.submissionStatus ===
-        BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload ||
       report.submissionStatus ===
         BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing ||
       report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
@@ -285,13 +268,7 @@ export const listBugReports = protectedProcedure
       const activeOrgId = requireActiveOrgId(context.session)
       const { page, perPage, offset, limit } = normalizePagination(input)
 
-      const filters = [
-        eq(bugReport.organizationId, activeOrgId),
-        ne(
-          bugReport.submissionStatus,
-          BUG_REPORT_SUBMISSION_STATUS_OPTIONS.pendingUpload
-        ),
-      ]
+      const filters = [eq(bugReport.organizationId, activeOrgId)]
 
       if (input?.search) {
         const searchValue = `%${input.search}%`

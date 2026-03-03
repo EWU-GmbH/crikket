@@ -7,7 +7,7 @@ import { appRouter } from "@crikket/api/routers/index"
 import { auth } from "@crikket/auth"
 import { runBugReportIngestionPass } from "@crikket/bug-reports/lib/ingestion-jobs"
 import { runStalePendingBugReportCleanupPass } from "@crikket/bug-reports/lib/orphan-cleanup"
-import { runAttachmentCleanupPass } from "@crikket/bug-reports/lib/storage"
+import { runArtifactCleanupPass } from "@crikket/bug-reports/lib/storage"
 import { env } from "@crikket/env/server"
 import { OpenAPIHandler } from "@orpc/openapi/fetch"
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins"
@@ -145,8 +145,8 @@ app.post("/api/embed/bug-report-finalize", (c) => {
 })
 
 const cleanupInterval = setInterval(() => {
-  runAttachmentCleanupPass({ limit: 50 }).catch((error: unknown) => {
-    console.error("[storage-cleanup] failed scheduled cleanup pass", error)
+  runArtifactCleanupPass({ limit: 50 }).catch((error: unknown) => {
+    console.error("[artifact-cleanup] failed scheduled cleanup pass", error)
   })
 }, STORAGE_CLEANUP_INTERVAL_MS)
 
