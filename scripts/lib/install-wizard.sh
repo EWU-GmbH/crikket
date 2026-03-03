@@ -401,6 +401,8 @@ configure_proxy() {
     validate_caddy_host "$BACKEND_HOST" || die "Caddy mode requires a real public backend domain."
 
     CADDY_ACME_EMAIL="$(prompt_required_value "Email for Caddy TLS certificates" "$(default_value "$ROOT_ENV_FILE" "CADDY_ACME_EMAIL" "")")"
+    CADDY_FRONTEND_HOST="$FRONTEND_HOST"
+    CADDY_BACKEND_HOST="$BACKEND_HOST"
     CADDY_HTTP_PORT="$(default_value "$ROOT_ENV_FILE" "CADDY_HTTP_PORT" "80")"
     CADDY_HTTPS_PORT="$(default_value "$ROOT_ENV_FILE" "CADDY_HTTPS_PORT" "443")"
     validate_port_number "$CADDY_HTTP_PORT" || die "Caddy HTTP port must be a number between 1 and 65535."
@@ -411,6 +413,8 @@ configure_proxy() {
   PROXY_MODE="none"
   PROXY_MODE_LABEL="No built-in reverse proxy"
   CADDY_ACME_EMAIL=""
+  CADDY_FRONTEND_HOST=""
+  CADDY_BACKEND_HOST=""
   CADDY_HTTP_PORT=""
   CADDY_HTTPS_PORT=""
 }
@@ -577,6 +581,8 @@ ${postgres_bindings}
 CADDY_HTTP_PORT=${CADDY_HTTP_PORT}
 CADDY_HTTPS_PORT=${CADDY_HTTPS_PORT}
 CADDY_ACME_EMAIL=${CADDY_ACME_EMAIL}
+CADDY_FRONTEND_HOST=${CADDY_FRONTEND_HOST}
+CADDY_BACKEND_HOST=${CADDY_BACKEND_HOST}
 ${postgres_settings}
 EOF
 }
