@@ -68,7 +68,6 @@ default_value() {
 
 ensure_selfhost_layout() {
   [[ -f "${ROOT_DIR}/docker-compose.yml" ]] || die "Run this script from the Crikket repository."
-  [[ -f "${ROOT_DIR}/docker-compose.build.yml" ]] || die "Missing docker-compose.build.yml."
   [[ -f "${ROOT_DIR}/docker-compose.caddy.yml" ]] || die "Missing docker-compose.caddy.yml."
   [[ -f "$ROOT_ENV_FILE" ]] || die "Missing ${ROOT_ENV_FILE}. Run ./scripts/setup.sh first."
   [[ -f "$SERVER_ENV_FILE" ]] || die "Missing ${SERVER_ENV_FILE}. Run ./scripts/setup.sh first."
@@ -99,14 +98,9 @@ ensure_docker_access() {
 }
 
 load_selfhost_mode() {
-  DEPLOY_MODE="$(default_value "$ROOT_ENV_FILE" "CRIKKET_DEPLOY_MODE" "source")"
   PROXY_MODE="$(default_value "$ROOT_ENV_FILE" "CRIKKET_PROXY_MODE" "none")"
 
   COMPOSE_FILE_ARGS=("-f" "docker-compose.yml")
-
-  if [[ "$DEPLOY_MODE" == "source" ]]; then
-    COMPOSE_FILE_ARGS+=("-f" "docker-compose.build.yml")
-  fi
 
   if [[ "$PROXY_MODE" == "caddy" ]]; then
     COMPOSE_FILE_ARGS+=("-f" "docker-compose.caddy.yml")
@@ -117,31 +111,7 @@ compose_file_summary() {
   printf '%s\n' "${COMPOSE_FILE_ARGS[*]}"
 }
 
-load_web_build_env() {
-  export NEXT_PUBLIC_SITE_URL
-  export NEXT_PUBLIC_APP_URL
-  export NEXT_PUBLIC_SERVER_URL
-  export NEXT_PUBLIC_GOOGLE_AUTH_ENABLED
-  export NEXT_PUBLIC_CRIKKET_KEY
-  export NEXT_PUBLIC_DEMO_URL
-  export NEXT_PUBLIC_POSTHOG_KEY
-  export NEXT_PUBLIC_POSTHOG_HOST
-
-  NEXT_PUBLIC_SITE_URL="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_SITE_URL" "")"
-  NEXT_PUBLIC_APP_URL="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_APP_URL" "")"
-  NEXT_PUBLIC_SERVER_URL="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_SERVER_URL" "")"
-  NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_GOOGLE_AUTH_ENABLED" "false")"
-  NEXT_PUBLIC_CRIKKET_KEY="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_CRIKKET_KEY" "")"
-  NEXT_PUBLIC_DEMO_URL="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_DEMO_URL" "")"
-  NEXT_PUBLIC_POSTHOG_KEY="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_POSTHOG_KEY" "")"
-  NEXT_PUBLIC_POSTHOG_HOST="$(default_value "$WEB_ENV_FILE" "NEXT_PUBLIC_POSTHOG_HOST" "")"
-}
-
 compose_run() {
-  if [[ "$DEPLOY_MODE" == "source" ]]; then
-    load_web_build_env
-  fi
-
   "${DOCKER_COMPOSE[@]}" "${COMPOSE_FILE_ARGS[@]}" "$@"
 }
 

@@ -17,16 +17,10 @@ Post-update verification:
 ./scripts/healthcheck.sh
 ```
 
-Manual equivalent for source builds:
+Manual equivalent:
 
 ```bash
 git pull
-docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-```
-
-Advanced: prebuilt image mode:
-
-```bash
 docker compose pull
 docker compose up -d
 ```

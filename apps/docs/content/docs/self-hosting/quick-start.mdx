@@ -97,28 +97,16 @@ NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true
 
 ### Start Stack
 
-Prebuilt images (default):
+Prebuilt images:
 
 ```bash
 docker compose up -d
-```
-
-Local source build:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 Production with built-in Caddy:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
-```
-
-Production with built-in Caddy and local source builds:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.caddy.yml up -d --build
 ```
 
   </Step>

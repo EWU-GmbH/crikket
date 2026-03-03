@@ -166,7 +166,6 @@ main() {
   load_selfhost_mode
   load_health_env
 
-  printf 'Deploy mode: %s\n' "$DEPLOY_MODE"
   printf 'Proxy mode: %s\n' "$PROXY_MODE"
   printf 'Compose files: %s\n' "$(compose_file_summary)"
 

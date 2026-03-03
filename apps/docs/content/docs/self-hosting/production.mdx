@@ -86,12 +86,6 @@ Prebuilt images:
 docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
 ```
 
-Local source builds:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.caddy.yml up -d --build
-```
-
 Container routing note:
 
 - In the default compose file, `web` and `server` run as two containers.
