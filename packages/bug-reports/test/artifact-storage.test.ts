@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test"
 import {
   buildCaptureArtifactKey,
   buildDebuggerArtifactKey,
-  buildDebuggerManifestKey,
   buildThumbnailArtifactKey,
 } from "../src/lib/artifact-storage"
 
@@ -41,12 +40,5 @@ describe("artifact storage key builders", () => {
         bugReportId: "br_123",
       })
     ).toBe("organizations/org_123/bug-reports/br_123/debugger/payload.json.gz")
-
-    expect(
-      buildDebuggerManifestKey({
-        organizationId: "org_123",
-        bugReportId: "br_123",
-      })
-    ).toBe("organizations/org_123/bug-reports/br_123/debugger/manifest.json")
   })
 })

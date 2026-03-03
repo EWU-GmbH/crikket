@@ -341,8 +341,6 @@ export async function finalizeBugReportUpload(input: {
       priority: uploadSession.priority,
       tags: uploadSession.tags,
       url: uploadSession.url,
-      attachmentUrl: null,
-      attachmentKey: null,
       attachmentType: uploadSession.attachmentType,
       captureKey: uploadSession.captureKey,
       captureContentType,

@@ -1,1 +1,0 @@
-ALTER TABLE "capture_public_key" DROP COLUMN "environment";

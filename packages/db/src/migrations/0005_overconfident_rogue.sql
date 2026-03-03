@@ -1,2 +1,0 @@
-ALTER TABLE "organization_billing_account" DROP CONSTRAINT "organization_billing_account_polar_customer_id_unique";--> statement-breakpoint
-CREATE INDEX "org_billing_polar_customer_idx" ON "organization_billing_account" USING btree ("polar_customer_id");

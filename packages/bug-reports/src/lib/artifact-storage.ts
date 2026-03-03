@@ -36,14 +36,6 @@ export function buildDebuggerArtifactKey(input: {
   return `${basePath}/debugger/payload.json.gz`
 }
 
-export function buildDebuggerManifestKey(input: {
-  organizationId: string
-  bugReportId: string
-}): string {
-  const basePath = buildBugReportBasePath(input)
-  return `${basePath}/debugger/manifest.json`
-}
-
 function buildBugReportArtifactBasePath(input: {
   organizationId: string
   bugReportId: string

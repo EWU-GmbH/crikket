@@ -6,7 +6,7 @@ import {
 } from "@crikket/shared/constants/priorities"
 import { ORPCError } from "@orpc/server"
 import { eq } from "drizzle-orm"
-import { resolveAttachmentUrl } from "../lib/storage"
+import { resolveCaptureUrl } from "../lib/storage"
 import {
   assertBugReportAccessById,
   assertVisibilityAccess,
@@ -56,9 +56,7 @@ export const getBugReportById = o
     const priority = priorityValues.includes(report.priority as Priority)
       ? (report.priority as Priority)
       : PRIORITY_OPTIONS.none
-    const attachmentUrl = await resolveAttachmentUrl({
-      attachmentKey: report.attachmentKey,
-      attachmentUrl: report.attachmentUrl,
+    const attachmentUrl = await resolveCaptureUrl({
       captureKey: report.captureKey,
     })
 
