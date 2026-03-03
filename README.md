@@ -9,7 +9,7 @@
 
 <p align="center"><strong>One-click bug reporting for modern teams.</strong><br />The open-source bug reporting tool.</p>
 
-<p align="center">View <a href="https://app.crikket.io/s/demo">Live Demo</a> here - Check out a sample bug report</p>
+<p align="center">View <a href="https://app.crikket.io/s/gVQoTvqv0vRo">Live Demo</a> here - Check out a sample bug report</p>
 
 ![Crikket Open Graph Preview](./apps/docs/public/og.png)
 
