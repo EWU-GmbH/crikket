@@ -73,7 +73,7 @@
     },
     "apps/server": {
       "name": "server",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@crikket/api": "workspace:*",
         "@crikket/auth": "workspace:*",
@@ -99,7 +99,7 @@
     },
     "apps/web": {
       "name": "web",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@base-ui/react": "catalog:",
         "@crikket/api": "workspace:*",
@@ -357,10 +357,6 @@
         "react": ">=18",
         "react-dom": ">=18",
       },
-      "optionalPeers": [
-        "react",
-        "react-dom",
-      ],
     },
   },
   "catalog": {
