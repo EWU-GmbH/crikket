@@ -100,7 +100,7 @@ function DashboardBackground() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 overflow-hidden">
+      <div className="grid grid-cols-4 gap-2 overflow-hidden">
         {mockReports.map((report) => (
           <div
             className="overflow-hidden rounded-lg border bg-card"
