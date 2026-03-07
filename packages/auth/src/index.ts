@@ -9,6 +9,7 @@ import { checkout, polar, portal, webhooks } from "@polar-sh/better-auth"
 import { Polar } from "@polar-sh/sdk"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { APIError } from "better-auth/api"
 import { admin } from "better-auth/plugins/admin"
 import { emailOTP } from "better-auth/plugins/email-otp"
 import { organization } from "better-auth/plugins/organization"
@@ -22,6 +23,9 @@ import {
 const MINUTE = 60
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
+
+const ALLOWED_SIGNUP_DOMAINS: readonly string[] =
+  env.ALLOWED_SIGNUP_DOMAINS.split(",")
 
 const isProduction = env.NODE_ENV === "production"
 const trustedOrigins = Array.from(
@@ -118,6 +122,25 @@ export const auth = betterAuth({
   }),
   trustedOrigins,
   ...(socialProviders ? { socialProviders } : {}),
+  databaseHooks: {
+    user: {
+      create: {
+        before: (user) => {
+          const email = user.email?.toLowerCase() ?? ""
+          const domain = email.split("@")[1] ?? ""
+
+          if (
+            ALLOWED_SIGNUP_DOMAINS.length > 0 &&
+            !ALLOWED_SIGNUP_DOMAINS.includes(domain)
+          ) {
+            throw new APIError("UNPROCESSABLE_ENTITY", {
+              message: `Sign up is only available for ${ALLOWED_SIGNUP_DOMAINS.join(", ")} domains.`,
+            })
+          }
+        },
+      },
+    },
+  },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
       await sendEmailVerificationLinkEmail({
