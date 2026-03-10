@@ -124,7 +124,9 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: (user) => {
+        before: async (user) => {
+          await Promise.resolve()
+
           const email = user.email?.toLowerCase() ?? ""
           const domain = email.split("@")[1] ?? ""
 
