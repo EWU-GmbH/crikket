@@ -14,5 +14,6 @@ RUN bun run --filter server build
 
 EXPOSE 3000
 
-# Migration läuft vor dem Server-Start (idempotent).
-CMD ["sh", "-c", "bun run db:migrate && exec bun /app/apps/server/dist/index.mjs"]
+# Migration als Pre-Deploy Command in Railway ausführen (hat Zugriff auf Env-Vars).
+# Settings → Deploy → Pre-Deploy Command: bun run db:migrate
+CMD ["bun", "/app/apps/server/dist/index.mjs"]
