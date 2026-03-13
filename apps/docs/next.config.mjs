@@ -13,10 +13,15 @@ const config = {
       },
     ]
 
-    if (process.env.NEXT_PUBLIC_POSTHOG_HOST) {
+    const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST
+    if (
+      posthogHost &&
+      !posthogHost.includes("__CRIKKET_POSTHOG_HOST__") &&
+      !posthogHost.includes("__crikket_posthog_host__")
+    ) {
       rewrites.push({
         source: "/ph/:path*",
-        destination: `${process.env.NEXT_PUBLIC_POSTHOG_HOST}/:path*`,
+        destination: `${posthogHost}/:path*`,
       })
     }
 
