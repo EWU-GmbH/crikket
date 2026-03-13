@@ -14,4 +14,5 @@ RUN bun run --filter server build
 
 EXPOSE 3000
 
-CMD ["bun", "/app/apps/server/dist/index.mjs"]
+# Migration läuft vor dem Server-Start (idempotent).
+CMD ["sh", "-c", "bun run db:migrate && exec bun /app/apps/server/dist/index.mjs"]
