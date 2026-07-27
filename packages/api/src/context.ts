@@ -1,11 +1,32 @@
 import { auth } from "@crikket/auth"
+import {
+  resolveOrganizationApiToken,
+  touchOrganizationApiTokenLastUsed,
+} from "@crikket/bug-reports/lib/organization-api-token"
 import { db } from "@crikket/db"
 import { session as authSession, member } from "@crikket/db/schema/auth"
+import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { asc, eq } from "drizzle-orm"
 import type { Context as HonoContext } from "hono"
 
 export type CreateContextOptions = {
   context: HonoContext
+}
+
+const BEARER_SPLIT_PATTERN = /\s+/
+
+function readBearerToken(headers: Headers): string | null {
+  const authorization = headers.get("authorization")?.trim()
+  if (!authorization) {
+    return null
+  }
+
+  const [scheme, token] = authorization.split(BEARER_SPLIT_PATTERN, 2)
+  if (!(scheme && token) || scheme.toLowerCase() !== "bearer") {
+    return null
+  }
+
+  return token.trim() || null
 }
 
 export async function createContext({ context }: CreateContextOptions) {
@@ -42,8 +63,33 @@ export async function createContext({ context }: CreateContextOptions) {
     }
   }
 
+  if (session) {
+    return {
+      apiToken: undefined,
+      session,
+    }
+  }
+
+  const bearerToken = readBearerToken(context.req.raw.headers)
+  if (!bearerToken) {
+    return {
+      apiToken: undefined,
+      session: undefined,
+    }
+  }
+
+  const apiToken = await resolveOrganizationApiToken(bearerToken)
+  if (apiToken) {
+    touchOrganizationApiTokenLastUsed(apiToken.tokenId).catch((error) => {
+      reportNonFatalError("Failed to update API token lastUsedAt", error, {
+        once: true,
+      })
+    })
+  }
+
   return {
-    session: session ?? undefined,
+    apiToken: apiToken ?? undefined,
+    session: undefined,
   }
 }
 

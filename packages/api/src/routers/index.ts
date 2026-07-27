@@ -2,6 +2,7 @@ import type { RouterClient } from "@orpc/server"
 
 import { publicProcedure } from "../index"
 
+import { apiTokenRouter } from "./api-token"
 import { authRouter } from "./auth"
 import { billingRouter } from "./billing"
 import { bugReportRouter } from "./bug-report"
@@ -12,6 +13,7 @@ export const appRouter = {
     return "OK"
   }),
   auth: authRouter,
+  apiToken: apiTokenRouter,
   billing: billingRouter,
   bugReport: bugReportRouter,
   captureKey: captureKeyRouter,
