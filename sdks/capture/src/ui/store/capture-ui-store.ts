@@ -78,6 +78,20 @@ export function createCaptureUiStore(): CaptureUiStore {
         busy: false,
       })
     },
+    openFeatureRequest: () => {
+      patchState({
+        overlayOpen: true,
+        recordingDockOpen: false,
+        recordingStartedAt: null,
+        view: "feature-request",
+        errorMessage: null,
+        busy: false,
+        featureRequestDraft: {
+          title: "",
+          description: "",
+        },
+      })
+    },
     close: () => {
       patchState({
         overlayOpen: false,
@@ -154,5 +168,9 @@ function createInitialState(): CaptureUiState {
       visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
     },
     reviewFormKey: "",
+    featureRequestDraft: {
+      title: "",
+      description: "",
+    },
   }
 }

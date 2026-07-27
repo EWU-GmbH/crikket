@@ -2,6 +2,7 @@ import { Button } from "../components/primitives/button"
 
 export function ChooserSection(props: {
   busy: boolean
+  onOpenFeatureRequest: () => void
   onStartVideo: () => void
   onTakeScreenshot: () => void
 }): React.JSX.Element {
@@ -29,6 +30,15 @@ export function ChooserSection(props: {
           Take Screenshot
         </Button>
       </div>
+      <Button
+        className="w-full"
+        disabled={props.busy}
+        onClick={props.onOpenFeatureRequest}
+        type="button"
+        variant="outline"
+      >
+        Feature Request
+      </Button>
     </section>
   )
 }

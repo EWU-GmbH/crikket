@@ -89,6 +89,16 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       onSubmit: (draft, options) => {
         return this.submit(draft, options).then(() => undefined)
       },
+      onSubmitFeatureRequest: async (draft) => {
+        const config = this.getRuntimeConfig()
+        const { submitFeatureRequest } = await import(
+          "../transport/feature-request-transport"
+        )
+        return submitFeatureRequest({
+          config,
+          draft,
+        })
+      },
       onReset: () => {
         this.reset()
       },

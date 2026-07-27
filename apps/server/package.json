@@ -17,6 +17,7 @@
     "@crikket/bug-reports": "workspace:*",
     "@crikket/db": "workspace:*",
     "@crikket/env": "workspace:*",
+    "@crikket/kan": "workspace:*",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",

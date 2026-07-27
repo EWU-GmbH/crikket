@@ -19,6 +19,7 @@
     "@crikket/billing": "workspace:*",
     "@crikket/db": "workspace:*",
     "@crikket/env": "workspace:*",
+    "@crikket/kan": "workspace:*",
     "@crikket/shared": "workspace:*",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",

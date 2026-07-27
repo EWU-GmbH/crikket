@@ -9,6 +9,28 @@ export function SuccessSection(props: {
   handlers: CaptureUiHandlers
 }): React.JSX.Element {
   const hasCopied = props.state.copyLabel === "Copied"
+  const isFeatureRequest = props.state.shareUrl.trim().length === 0
+
+  if (isFeatureRequest) {
+    return (
+      <section className="grid gap-5 p-5">
+        <div className="grid gap-1 text-center">
+          <strong className="text-green-700 text-xl">Feature request sent</strong>
+          <p className="m-0 text-muted-foreground text-sm">
+            Thanks — your idea was sent to the team board.
+          </p>
+        </div>
+        <Button
+          className="w-full"
+          disabled={props.state.busy}
+          onClick={props.handlers.onRetry}
+          type="button"
+        >
+          Done
+        </Button>
+      </section>
+    )
+  }
 
   return (
     <section className="grid gap-5 p-5">

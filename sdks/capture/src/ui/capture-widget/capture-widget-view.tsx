@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react"
 import type { CaptureUiHandlers, CaptureUiState } from "../types"
 import { ChooserSection } from "./sections/chooser-section"
+import { FeatureRequestFormSection } from "./sections/feature-request-form-section"
 import { SuccessSection } from "./sections/success-section"
 
 const LazyReviewFormSection = lazy(async () => {
@@ -21,8 +22,26 @@ export function CaptureWidgetView(props: {
     return (
       <ChooserSection
         busy={props.isBusy}
+        onOpenFeatureRequest={props.handlers.onOpenFeatureRequest}
         onStartVideo={props.handlers.onStartVideo}
         onTakeScreenshot={props.handlers.onTakeScreenshot}
+      />
+    )
+  }
+
+  if (props.state.view === "feature-request") {
+    return (
+      <FeatureRequestFormSection
+        busy={props.isSubmitPending || props.isBusy}
+        description={props.state.featureRequestDraft.description}
+        errorMessage={props.state.errorMessage}
+        onBack={props.handlers.onCancel}
+        onDescriptionChange={props.handlers.onFeatureRequestDescriptionChange}
+        onSubmit={() => {
+          void props.handlers.onSubmitFeatureRequest()
+        }}
+        onTitleChange={props.handlers.onFeatureRequestTitleChange}
+        title={props.state.featureRequestDraft.title}
       />
     )
   }

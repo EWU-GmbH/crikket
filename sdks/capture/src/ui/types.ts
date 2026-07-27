@@ -9,7 +9,7 @@ export interface CaptureReviewSubmitOptions {
 }
 
 export interface CaptureUiState {
-  view: "chooser" | "recording" | "review" | "success"
+  view: "chooser" | "recording" | "review" | "feature-request" | "success"
   overlayOpen: boolean
   recordingDockOpen: boolean
   busy: boolean
@@ -22,6 +22,10 @@ export interface CaptureUiState {
   copyLabel: string
   reviewDraft: CaptureSubmissionDraft
   reviewFormKey: string
+  featureRequestDraft: {
+    title: string
+    description: string
+  }
 }
 
 export interface CaptureUiHandlers {
@@ -29,11 +33,15 @@ export interface CaptureUiHandlers {
   onClose: () => void
   onStartVideo: () => void
   onTakeScreenshot: () => void
+  onOpenFeatureRequest: () => void
+  onFeatureRequestTitleChange: (value: string) => void
+  onFeatureRequestDescriptionChange: (value: string) => void
   onStopRecording: () => void
   onSubmit: (
     draft: CaptureSubmissionDraft,
     options?: CaptureReviewSubmitOptions
   ) => Promise<void>
+  onSubmitFeatureRequest: () => Promise<void>
   onCancel: () => void
   onRetry: () => void
   onCopyLink: () => void
@@ -49,6 +57,10 @@ export interface CaptureUiCallbacks {
     draft: CaptureSubmissionDraft,
     options?: CaptureReviewSubmitOptions
   ) => Promise<void>
+  onSubmitFeatureRequest: (draft: {
+    title: string
+    description: string
+  }) => Promise<{ cardPublicId?: string }>
   onReset: () => void
 }
 
@@ -57,6 +69,7 @@ export interface CaptureUiStore {
   subscribe: (listener: () => void) => () => void
   patchState: (patch: Partial<CaptureUiState>) => void
   openChooser: () => void
+  openFeatureRequest: () => void
   close: () => void
   showRecording: (startedAt: number) => void
   showReview: (input: {
