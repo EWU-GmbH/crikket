@@ -1,0 +1,34 @@
+{
+  "name": "@crikket/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Model Context Protocol server for Crikket bug reports",
+  "bin": {
+    "crikket-mcp": "./src/cli.ts"
+  },
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "start": "bun run ./src/cli.ts",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test test"
+  },
+  "dependencies": {
+    "@crikket/api": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@orpc/client": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@crikket/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

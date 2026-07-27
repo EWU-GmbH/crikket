@@ -1,5 +1,6 @@
 import { db } from "@crikket/db"
 import { bugReport } from "@crikket/db/schema/bug-report"
+import { API_TOKEN_SCOPE_OPTIONS } from "@crikket/shared/constants/api-token"
 import {
   PRIORITY_OPTIONS,
   type Priority,
@@ -15,6 +16,7 @@ import {
   statusValues,
 } from "../lib/utils"
 import { o } from "./context"
+import { requireApiTokenScope } from "./helpers"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -24,7 +26,13 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
 export const getBugReportById = o
   .input(bugReportIdInputSchema)
   .handler(async ({ context, input }) => {
+    requireApiTokenScope(
+      context.apiToken,
+      API_TOKEN_SCOPE_OPTIONS.bugReportsRead
+    )
+
     await assertBugReportAccessById({
+      apiTokenOrganizationId: context.apiToken?.organizationId,
       id: input.id,
       session: context.session,
     })
@@ -42,13 +50,16 @@ export const getBugReportById = o
     }
 
     const visibility = assertVisibilityAccess({
+      apiTokenOrganizationId: context.apiToken?.organizationId,
       organizationId: report.organizationId,
       session: context.session,
       visibility: report.visibility,
     })
-    const activeOrgId = context.session?.session.activeOrganizationId
+    const activeOrgId =
+      context.apiToken?.organizationId ??
+      context.session?.session.activeOrganizationId
     const canEdit =
-      Boolean(context.session?.user) &&
+      (Boolean(context.session?.user) || Boolean(context.apiToken)) &&
       Boolean(activeOrgId) &&
       activeOrgId === report.organizationId
 

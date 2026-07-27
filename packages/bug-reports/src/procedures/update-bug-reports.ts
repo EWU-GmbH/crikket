@@ -15,7 +15,7 @@ import {
   visibilityValues,
 } from "../lib/utils"
 import { protectedProcedure } from "./context"
-import { normalizeTags, requireActiveOrgId } from "./helpers"
+import { normalizeTags, requireBugReportsWriteAccess } from "./helpers"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -111,7 +111,7 @@ function buildUpdateValues(input: {
 export const updateBugReport = protectedProcedure
   .input(bugReportUpdateInputSchema)
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = requireBugReportsWriteAccess(context)
     const values = buildUpdateValues(input)
 
     const updated = await db
@@ -154,7 +154,7 @@ export const updateBugReport = protectedProcedure
 export const updateBugReportsBulk = protectedProcedure
   .input(bugReportBulkUpdateInputSchema)
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = requireBugReportsWriteAccess(context)
     const values = buildUpdateValues(input)
     const uniqueIds = Array.from(new Set(input.ids))
 
@@ -183,7 +183,7 @@ export const updateBugReportVisibility = protectedProcedure
     })
   )
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = requireBugReportsWriteAccess(context)
 
     const updated = await db
       .update(bugReport)

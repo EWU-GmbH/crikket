@@ -9,7 +9,7 @@ import {
   updateCapturePublicKeyDetails,
   updateCapturePublicKeyOrigins,
 } from "../lib/capture-public-key"
-import { protectedProcedure } from "./context"
+import { sessionProcedure } from "./context"
 import { requireActiveOrgAdmin } from "./helpers"
 
 const captureKeyIdSchema = z.object({
@@ -50,17 +50,15 @@ function rethrowCaptureKeyInputError(error: unknown): never {
   })
 }
 
-export const listCaptureKeys = protectedProcedure.handler(
-  async ({ context }) => {
-    const organizationId = await requireActiveOrgAdmin(context.session)
+export const listCaptureKeys = sessionProcedure.handler(async ({ context }) => {
+  const organizationId = await requireActiveOrgAdmin(context.session)
 
-    return listCapturePublicKeys({
-      organizationId,
-    })
-  }
-)
+  return listCapturePublicKeys({
+    organizationId,
+  })
+})
 
-export const createCaptureKey = protectedProcedure
+export const createCaptureKey = sessionProcedure
   .input(createCaptureKeyInputSchema)
   .handler(async ({ context, input }) => {
     const organizationId = await requireActiveOrgAdmin(context.session)
@@ -77,7 +75,7 @@ export const createCaptureKey = protectedProcedure
     }
   })
 
-export const updateCaptureKeyOrigins = protectedProcedure
+export const updateCaptureKeyOrigins = sessionProcedure
   .input(updateCaptureKeyOriginsInputSchema)
   .handler(async ({ context, input }) => {
     const organizationId = await requireActiveOrgAdmin(context.session)
@@ -93,7 +91,7 @@ export const updateCaptureKeyOrigins = protectedProcedure
     }
   })
 
-export const updateCaptureKeyDetails = protectedProcedure
+export const updateCaptureKeyDetails = sessionProcedure
   .input(updateCaptureKeyDetailsInputSchema)
   .handler(async ({ context, input }) => {
     const organizationId = await requireActiveOrgAdmin(context.session)
@@ -110,7 +108,7 @@ export const updateCaptureKeyDetails = protectedProcedure
     }
   })
 
-export const revokeCaptureKey = protectedProcedure
+export const revokeCaptureKey = sessionProcedure
   .input(captureKeyIdSchema)
   .handler(async ({ context, input }) => {
     const organizationId = await requireActiveOrgAdmin(context.session)
@@ -121,7 +119,7 @@ export const revokeCaptureKey = protectedProcedure
     })
   })
 
-export const deleteCaptureKey = protectedProcedure
+export const deleteCaptureKey = sessionProcedure
   .input(captureKeyIdSchema)
   .handler(async ({ context, input }) => {
     const organizationId = await requireActiveOrgAdmin(context.session)
@@ -132,7 +130,7 @@ export const deleteCaptureKey = protectedProcedure
     })
   })
 
-export const rotateCaptureKey = protectedProcedure
+export const rotateCaptureKey = sessionProcedure
   .input(captureKeyIdSchema)
   .handler(async ({ context, input }) => {
     const organizationId = await requireActiveOrgAdmin(context.session)

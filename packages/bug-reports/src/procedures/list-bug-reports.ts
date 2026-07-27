@@ -28,7 +28,7 @@ import {
   visibilityValues,
 } from "../lib/utils"
 import { protectedProcedure } from "./context"
-import { requireActiveOrgId } from "./helpers"
+import { requireBugReportsReadAccess } from "./helpers"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -265,7 +265,7 @@ export const listBugReports = protectedProcedure
   .input(listBugReportsInputSchema)
   .handler(
     async ({ context, input }): Promise<PaginatedResult<BugReportListItem>> => {
-      const activeOrgId = requireActiveOrgId(context.session)
+      const activeOrgId = requireBugReportsReadAccess(context)
       const { page, perPage, offset, limit } = normalizePagination(input)
 
       const filters = [eq(bugReport.organizationId, activeOrgId)]
@@ -336,7 +336,8 @@ export const listBugReports = protectedProcedure
 
 export const getBugReportDashboardStats = protectedProcedure.handler(
   async ({ context }): Promise<BugReportDashboardStats> => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = requireBugReportsReadAccess(context)
+    const reporterId = context.session?.user.id ?? "__api_token__"
 
     const [result] = await db
       .select({
@@ -346,7 +347,7 @@ export const getBugReportDashboardStats = protectedProcedure.handler(
         resolved: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'resolved' THEN 1 ELSE 0 END)`,
         closed: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'closed' THEN 1 ELSE 0 END)`,
         untriaged: sql<number>`SUM(CASE WHEN ${bugReport.priority} = 'none' THEN 1 ELSE 0 END)`,
-        mine: sql<number>`SUM(CASE WHEN ${bugReport.reporterId} = ${context.session.user.id} THEN 1 ELSE 0 END)`,
+        mine: sql<number>`SUM(CASE WHEN ${bugReport.reporterId} = ${reporterId} THEN 1 ELSE 0 END)`,
         privateCount: sql<number>`SUM(CASE WHEN ${bugReport.visibility} = 'private' THEN 1 ELSE 0 END)`,
         publicCount: sql<number>`SUM(CASE WHEN ${bugReport.visibility} = 'public' THEN 1 ELSE 0 END)`,
       })
