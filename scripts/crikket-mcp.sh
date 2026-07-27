@@ -15,7 +15,7 @@ else
 fi
 
 export CRIKKET_API_TOKEN="${CRIKKET_API_TOKEN:-${crikket:-}}"
-export CRIKKET_SERVER_URL="${CRIKKET_SERVER_URL:-https://api.crikket.io}"
+export CRIKKET_SERVER_URL="${CRIKKET_SERVER_URL:-https://report.ewu.tools}"
 
 if [[ -z "${CRIKKET_API_TOKEN}" ]]; then
   echo "[crikket-mcp] Missing CRIKKET_API_TOKEN (or Cloud Agent secret named crikket)" >&2

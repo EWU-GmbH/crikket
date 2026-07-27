@@ -3,7 +3,7 @@
     "crikket": {
       "command": "${workspaceFolder}/scripts/crikket-mcp.sh",
       "env": {
-        "CRIKKET_SERVER_URL": "https://api.crikket.io"
+        "CRIKKET_SERVER_URL": "https://report.ewu.tools"
       }
     }
   }

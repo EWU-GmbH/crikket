@@ -18,7 +18,7 @@ Manual / user-level config (`~/.cursor/mcp.json`):
       "command": "${workspaceFolder}/scripts/crikket-mcp.sh",
       "env": {
         "CRIKKET_API_TOKEN": "crk_api_…",
-        "CRIKKET_SERVER_URL": "https://api.crikket.io"
+        "CRIKKET_SERVER_URL": "https://report.ewu.tools"
       }
     }
   }
