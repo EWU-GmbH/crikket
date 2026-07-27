@@ -102,9 +102,17 @@ export function isStatus(
 }
 
 export function canAccessPrivateReport(input: {
+  apiTokenOrganizationId?: string | null
   organizationId: string
   session?: SessionContext
 }): boolean {
+  if (
+    input.apiTokenOrganizationId &&
+    input.apiTokenOrganizationId === input.organizationId
+  ) {
+    return true
+  }
+
   const activeOrgId = input.session?.session.activeOrganizationId
   return (
     Boolean(input.session?.user) &&
@@ -114,6 +122,7 @@ export function canAccessPrivateReport(input: {
 }
 
 export function assertVisibilityAccess(input: {
+  apiTokenOrganizationId?: string | null
   visibility: unknown
   organizationId: string
   session?: SessionContext
@@ -183,6 +192,7 @@ export function formatDurationMs(durationMs: number): string {
 }
 
 export async function assertBugReportAccessById(input: {
+  apiTokenOrganizationId?: string | null
   id: string
   session?: SessionContext
 }): Promise<{
@@ -206,11 +216,13 @@ export async function assertBugReportAccessById(input: {
   }
 
   const visibility = assertVisibilityAccess({
+    apiTokenOrganizationId: input.apiTokenOrganizationId,
     organizationId: report.organizationId,
     session: input.session,
     visibility: report.visibility,
   })
   const canAccessUnready = canAccessPrivateReport({
+    apiTokenOrganizationId: input.apiTokenOrganizationId,
     organizationId: report.organizationId,
     session: input.session,
   })

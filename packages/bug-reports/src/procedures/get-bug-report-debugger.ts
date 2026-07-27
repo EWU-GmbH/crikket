@@ -1,3 +1,4 @@
+import { API_TOKEN_SCOPE_OPTIONS } from "@crikket/shared/constants/api-token"
 import { buildPaginationMeta } from "@crikket/shared/lib/server/pagination"
 import { ORPCError } from "@orpc/server"
 
@@ -15,11 +16,27 @@ import {
   normalizeDebuggerNetworkRequestPagination,
 } from "../lib/utils"
 import { o } from "./context"
+import { requireApiTokenScope } from "./helpers"
+
+function assertDebuggerReadAccess(input: {
+  apiToken: Parameters<typeof requireApiTokenScope>[0]
+  id: string
+  session: Parameters<typeof assertBugReportAccessById>[0]["session"]
+}) {
+  requireApiTokenScope(input.apiToken, API_TOKEN_SCOPE_OPTIONS.bugReportsRead)
+
+  return assertBugReportAccessById({
+    apiTokenOrganizationId: input.apiToken?.organizationId,
+    id: input.id,
+    session: input.session,
+  })
+}
 
 export const getBugReportDebuggerEvents = o
   .input(bugReportIdInputSchema)
   .handler(async ({ context, input }) => {
-    await assertBugReportAccessById({
+    await assertDebuggerReadAccess({
+      apiToken: context.apiToken,
       id: input.id,
       session: context.session,
     })
@@ -30,7 +47,8 @@ export const getBugReportDebuggerEvents = o
 export const getBugReportNetworkRequests = o
   .input(debuggerNetworkRequestsInputSchema)
   .handler(async ({ context, input }) => {
-    await assertBugReportAccessById({
+    await assertDebuggerReadAccess({
+      apiToken: context.apiToken,
       id: input.id,
       session: context.session,
     })
@@ -63,7 +81,8 @@ export const getBugReportNetworkRequests = o
 export const getBugReportNetworkRequestPayload = o
   .input(debuggerNetworkRequestPayloadInputSchema)
   .handler(async ({ context, input }) => {
-    await assertBugReportAccessById({
+    await assertDebuggerReadAccess({
+      apiToken: context.apiToken,
       id: input.id,
       session: context.session,
     })

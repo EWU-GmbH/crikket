@@ -1,8 +1,16 @@
 import { db } from "@crikket/db"
 import { member } from "@crikket/db/schema/auth"
+import {
+  API_TOKEN_SCOPE_OPTIONS,
+  type ApiTokenScope,
+} from "@crikket/shared/constants/api-token"
 import { ORPCError } from "@orpc/server"
 import { and, eq } from "drizzle-orm"
 
+import {
+  apiTokenHasScope,
+  type ResolvedApiTokenContext,
+} from "../lib/organization-api-token"
 import type { SessionContext } from "../lib/utils"
 
 export function requireActiveOrgId(session: SessionContext): string {
@@ -12,6 +20,52 @@ export function requireActiveOrgId(session: SessionContext): string {
   }
 
   return activeOrgId
+}
+
+export function requireOrganizationId(input: {
+  apiToken?: ResolvedApiTokenContext
+  session?: SessionContext
+}): string {
+  if (input.apiToken) {
+    return input.apiToken.organizationId
+  }
+
+  if (!input.session) {
+    throw new ORPCError("UNAUTHORIZED")
+  }
+
+  return requireActiveOrgId(input.session)
+}
+
+export function requireApiTokenScope(
+  apiToken: ResolvedApiTokenContext | undefined,
+  scope: ApiTokenScope
+): void {
+  if (!apiToken) {
+    return
+  }
+
+  if (!apiTokenHasScope(apiToken, scope)) {
+    throw new ORPCError("FORBIDDEN", {
+      message: `API token is missing required scope: ${scope}`,
+    })
+  }
+}
+
+export function requireBugReportsReadAccess(input: {
+  apiToken?: ResolvedApiTokenContext
+  session?: SessionContext
+}): string {
+  requireApiTokenScope(input.apiToken, API_TOKEN_SCOPE_OPTIONS.bugReportsRead)
+  return requireOrganizationId(input)
+}
+
+export function requireBugReportsWriteAccess(input: {
+  apiToken?: ResolvedApiTokenContext
+  session?: SessionContext
+}): string {
+  requireApiTokenScope(input.apiToken, API_TOKEN_SCOPE_OPTIONS.bugReportsWrite)
+  return requireOrganizationId(input)
 }
 
 export async function requireActiveOrgAdmin(
@@ -32,7 +86,7 @@ export async function requireActiveOrgAdmin(
   if (!(activeMember && isOrgAdminRole(activeMember.role))) {
     throw new ORPCError("FORBIDDEN", {
       message:
-        "Only organization admins or owners can manage capture widget keys.",
+        "Only organization admins or owners can manage organization secrets.",
     })
   }
 

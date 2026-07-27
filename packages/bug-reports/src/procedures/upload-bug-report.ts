@@ -10,10 +10,10 @@ import {
   finalizeBugReportUpload,
   finalizeBugReportUploadInputSchema,
 } from "../lib/upload-session"
-import { protectedProcedure } from "./context"
+import { sessionProcedure } from "./context"
 import { normalizeTags, requireActiveOrgId } from "./helpers"
 
-export const createBugReportUpload = protectedProcedure
+export const createBugReportUpload = sessionProcedure
   .input(createBugReportUploadSessionInputSchema)
   .handler(({ context, input }) => {
     const activeOrgId = requireActiveOrgId(context.session)
@@ -26,7 +26,7 @@ export const createBugReportUpload = protectedProcedure
     })
   })
 
-export const finalizeBugReportUploadProcedure = protectedProcedure
+export const finalizeBugReportUploadProcedure = sessionProcedure
   .input(finalizeBugReportUploadInputSchema)
   .handler(({ context, input }) => {
     const activeOrgId = requireActiveOrgId(context.session)
@@ -37,7 +37,7 @@ export const finalizeBugReportUploadProcedure = protectedProcedure
     })
   })
 
-export const retryBugReportDebuggerIngestionProcedure = protectedProcedure
+export const retryBugReportDebuggerIngestionProcedure = sessionProcedure
   .input(
     z.object({
       id: z.string().min(1),
