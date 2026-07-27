@@ -134,6 +134,7 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
       method: "PUT" as const,
       url: "https://storage.example.com/debugger-upload",
     },
+    extraAttachmentUploads: [],
   }),
   finalizeBugReportUpload: async () => ({
     debugger: {

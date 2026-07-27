@@ -6,6 +6,12 @@ import type {
 
 export interface CaptureReviewSubmitOptions {
   screenshotBlobOverride?: Blob
+  extraAttachments?: Array<{
+    clientId: string
+    kind: "screenshot" | "file"
+    blob: Blob
+    filename?: string
+  }>
 }
 
 export interface CaptureUiState {

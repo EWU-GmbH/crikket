@@ -17,6 +17,13 @@ export async function runStalePendingBugReportCleanupPass(options?: {
       id: true,
       organizationId: true,
     },
+    with: {
+      attachments: {
+        columns: {
+          objectKey: true,
+        },
+      },
+    },
     limit: options?.limit ?? STALE_PENDING_UPLOAD_DEFAULT_BATCH,
   })
 
@@ -32,8 +39,14 @@ export async function runStalePendingBugReportCleanupPass(options?: {
         )
       )
 
-    const { captureObjectKey, debuggerObjectKey } =
-      resolvePendingBugReportUploadSessionArtifactKeys(session)
+    const { captureObjectKey, debuggerObjectKey, attachmentObjectKeys } =
+      resolvePendingBugReportUploadSessionArtifactKeys({
+        captureKey: session.captureKey,
+        debuggerKey: session.debuggerKey,
+        attachmentObjectKeys: session.attachments.map(
+          (attachment) => attachment.objectKey
+        ),
+      })
 
     await removeArtifactEventually({
       artifactKind: "capture",
@@ -44,6 +57,13 @@ export async function runStalePendingBugReportCleanupPass(options?: {
       await removeArtifactEventually({
         artifactKind: "debugger",
         objectKey: debuggerObjectKey,
+      })
+    }
+
+    for (const objectKey of attachmentObjectKeys) {
+      await removeArtifactEventually({
+        artifactKind: "attachment",
+        objectKey,
       })
     }
 

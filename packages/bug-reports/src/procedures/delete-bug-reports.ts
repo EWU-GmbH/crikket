@@ -1,5 +1,5 @@
 import { db } from "@crikket/db"
-import { bugReport } from "@crikket/db/schema/bug-report"
+import { bugReport, bugReportAttachment } from "@crikket/db/schema/bug-report"
 import { ORPCError } from "@orpc/server"
 import { and, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
@@ -11,6 +11,23 @@ import {
 } from "../lib/storage"
 import { protectedProcedure } from "./context"
 import { requireBugReportsWriteAccess } from "./helpers"
+
+async function collectAttachmentObjectKeys(
+  bugReportIds: string[]
+): Promise<string[]> {
+  if (bugReportIds.length === 0) {
+    return []
+  }
+
+  const attachments = await db.query.bugReportAttachment.findMany({
+    where: inArray(bugReportAttachment.bugReportId, bugReportIds),
+    columns: {
+      objectKey: true,
+    },
+  })
+
+  return attachments.map((attachment) => attachment.objectKey)
+}
 
 export const deleteBugReport = protectedProcedure
   .input(z.object({ id: z.string().min(1) }))
@@ -27,6 +44,8 @@ export const deleteBugReport = protectedProcedure
     if (!report) {
       throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
     }
+
+    const attachmentObjectKeys = await collectAttachmentObjectKeys([input.id])
 
     await db
       .delete(bugReport)
@@ -50,6 +69,13 @@ export const deleteBugReport = protectedProcedure
       await removeArtifactEventually({
         artifactKind: "thumbnail",
         objectKey: report.thumbnailKey,
+      })
+    }
+
+    for (const objectKey of attachmentObjectKeys) {
+      await removeArtifactEventually({
+        artifactKind: "attachment",
+        objectKey,
       })
     }
 
@@ -85,19 +111,20 @@ export const deleteBugReportsBulk = protectedProcedure
       return { deletedCount: 0 }
     }
 
+    const reportIds = reports.map((report) => report.id)
     const captureKeys = reports
       .map((report) => report.captureKey)
       .filter((value): value is string => typeof value === "string")
+    const attachmentObjectKeys = await collectAttachmentObjectKeys(reportIds)
 
-    await db.delete(bugReport).where(
-      and(
-        eq(bugReport.organizationId, activeOrgId),
-        inArray(
-          bugReport.id,
-          reports.map((report) => report.id)
+    await db
+      .delete(bugReport)
+      .where(
+        and(
+          eq(bugReport.organizationId, activeOrgId),
+          inArray(bugReport.id, reportIds)
         )
       )
-    )
 
     for (const objectKey of captureKeys) {
       await removeCaptureArtifactEventually(objectKey)
@@ -117,6 +144,13 @@ export const deleteBugReportsBulk = protectedProcedure
           objectKey: report.thumbnailKey,
         })
       }
+    }
+
+    for (const objectKey of attachmentObjectKeys) {
+      await removeArtifactEventually({
+        artifactKind: "attachment",
+        objectKey,
+      })
     }
 
     await runArtifactCleanupPass({ limit: 20 })

@@ -8,6 +8,7 @@ import type {
   CaptureSubmitTransport,
   ReviewSnapshot,
 } from "../types"
+import type { CaptureReviewSubmitOptions } from "../ui/types"
 import { getDeviceInfo, getPageTitle, getPageUrl } from "../utils"
 
 export function submitCapturedReport(input: {
@@ -15,6 +16,7 @@ export function submitCapturedReport(input: {
   draft: CaptureSubmissionDraft
   media: CapturedMedia
   review: ReviewSnapshot
+  submitOptions?: CaptureReviewSubmitOptions
   submitTransport?: CaptureSubmitTransport
 }): Promise<CaptureSubmitResult> {
   const submitTransport = input.submitTransport ?? defaultSubmitTransport
@@ -34,6 +36,7 @@ export function submitCapturedReport(input: {
       debuggerPayload: input.review.debuggerPayload,
       debuggerSummary: input.review.debuggerSummary,
       media: input.media.blob,
+      extraAttachments: input.submitOptions?.extraAttachments,
     },
   })
 }
