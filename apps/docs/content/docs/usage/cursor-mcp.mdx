@@ -1,0 +1,54 @@
+---
+title: Cursor MCP
+description: Connect Cursor to private Crikket bug reports with organization API tokens.
+---
+
+Private Crikket reports require authentication, so pasting a share link into Cursor is not enough.
+Use the Crikket MCP server with an organization API token instead.
+
+## 1. Create an API token
+
+1. Sign in to Crikket as an organization admin or owner.
+2. Open **Settings → API Tokens**.
+3. Create a token (default scopes: `bug-reports:read`, `bug-reports:write`).
+4. Copy the secret immediately. It is shown only once.
+
+## 2. Configure Cursor
+
+Add the server to `~/.cursor/mcp.json` or your project `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "crikket": {
+      "command": "bun",
+      "args": ["run", "/absolute/path/to/crikket/packages/mcp/src/cli.ts"],
+      "env": {
+        "CRIKKET_API_TOKEN": "crk_api_…",
+        "CRIKKET_SERVER_URL": "https://api.crikket.io"
+      }
+    }
+  }
+}
+```
+
+For self-hosted installs, point `CRIKKET_SERVER_URL` at the API origin that serves `/rpc`.
+
+## 3. Use it in Cursor
+
+Ask Cursor to load a report by id, for example:
+
+> Use the Crikket MCP tools to open report `br_…`, inspect the debugger context, and fix the bug.
+
+Available tools:
+
+- `list_bug_reports`
+- `get_bug_report`
+- `get_bug_report_context`
+- `update_bug_report`
+
+## Security notes
+
+- Treat API tokens like passwords.
+- Prefer least privilege: use read-only scopes when write access is not needed.
+- Rotate or revoke tokens from **Settings → API Tokens** if a secret leaks.
