@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "crikket": {
+      "command": "${workspaceFolder}/scripts/crikket-mcp.sh",
+      "env": {
+        "CRIKKET_SERVER_URL": "https://api.crikket.io"
+      }
+    }
+  }
+}
