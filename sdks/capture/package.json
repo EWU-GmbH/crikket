@@ -69,7 +69,8 @@
   },
   "dependencies": {
     "@crikket/capture-core": "workspace:*",
-    "@crikket/shared": "workspace:*"
+    "@crikket/shared": "workspace:*",
+    "lucide-react": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

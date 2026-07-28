@@ -375,6 +375,7 @@
       "dependencies": {
         "@crikket/capture-core": "workspace:*",
         "@crikket/shared": "workspace:*",
+        "lucide-react": "catalog:",
       },
       "devDependencies": {
         "@crikket/config": "workspace:*",
