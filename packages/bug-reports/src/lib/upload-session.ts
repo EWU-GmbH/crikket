@@ -712,7 +712,7 @@ function resolveSubmissionStatus(input: {
 
 async function syncBugReportToKan(input: {
   id: string
-  title: string
+  title: string | null
   description: string | null
   url: string | null
   priority: string | null
