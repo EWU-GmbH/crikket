@@ -1,6 +1,7 @@
 "use client"
 
 import type { authClient } from "@crikket/auth/client"
+import { siteConfig } from "@crikket/shared/config/site"
 import {
   Sidebar,
   SidebarContent,
@@ -18,7 +19,9 @@ import {
   BookOpen,
   Building2,
   CreditCard,
+  Github,
   KeyRound,
+  type LucideIcon,
   UserRound,
   Video,
 } from "lucide-react"
@@ -70,13 +73,21 @@ const navSettings = [
   },
 ] as const
 
-const navSecondary = [
+const navSecondary: {
+  title: string
+  href?: string
+  icon: LucideIcon
+}[] = [
   {
     title: "Documentation",
-    url: "/docs",
     icon: BookOpen,
   },
-] as const
+  {
+    title: "Source Code (AGPL-3.0)",
+    href: siteConfig.links.source,
+    icon: Github,
+  },
+]
 
 export function AppSidebar({
   user,
@@ -147,28 +158,32 @@ export function AppSidebar({
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
-              {navSecondary.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    render={(props) =>
-                      docsUrl ? (
-                        <a
-                          href={docsUrl}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                          {...props}
-                        />
-                      ) : (
-                        <button type="button" {...props} />
-                      )
-                    }
-                    size="sm"
-                  >
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {navSecondary.map((item) => {
+                const href = item.href ?? docsUrl
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      render={(props) =>
+                        href ? (
+                          <a
+                            href={href}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                            {...props}
+                          />
+                        ) : (
+                          <button type="button" {...props} />
+                        )
+                      }
+                      size="sm"
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

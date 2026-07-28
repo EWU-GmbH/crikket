@@ -24,6 +24,7 @@ export const siteConfig = {
   },
   links: {
     repo: "https://github.com/redpangilinan/crikket",
+    source: "https://github.com/EWU-GmbH/crikket",
     github: "https://github.com/redpangilinan",
     twitter: "https://x.com/redpngilinan",
   },

@@ -140,3 +140,10 @@ Issues, pull requests, and feedback are welcome.
 ## License
 
 Licensed under the [AGPL-3.0](./LICENSE).
+
+> **Fork notice:** This repository is a fork of
+> [redpangilinan/crikket](https://github.com/redpangilinan/crikket) with
+> modifications by EWU GmbH (Kan integration, German capture widget UI,
+> additional capture uploads, org API tokens, self-host deployment tooling).
+> In accordance with AGPL-3.0 §13, the complete source code of the modified
+> version running on `report.ewu.tools` is published in this repository.
