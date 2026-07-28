@@ -466,9 +466,10 @@ export async function finalizeBugReportUpload(input: {
     })
   }
 
-  // Sync to EWU Kan "Bugs" list (server-side; never blocks report creation).
+  // Sync to the organization's Kan "Bugs" list (server-side; never blocks report creation).
   syncBugReportToKan({
     id: uploadSession.id,
+    organizationId: uploadSession.organizationId,
     title: uploadSession.title,
     description: uploadSession.description,
     url: uploadSession.url,
@@ -712,6 +713,7 @@ function resolveSubmissionStatus(input: {
 
 async function syncBugReportToKan(input: {
   id: string
+  organizationId: string
   title: string | null
   description: string | null
   url: string | null
@@ -719,10 +721,12 @@ async function syncBugReportToKan(input: {
   sharePath: string
 }): Promise<void> {
   try {
-    const { createKanCardInBackground, getKanBugsListPublicId } = await import(
-      "@crikket/kan/client"
-    )
-    const listPublicId = getKanBugsListPublicId()
+    const { createKanCardInBackground, getKanListPublicIdForOrganization } =
+      await import("@crikket/kan/client")
+    const listPublicId = getKanListPublicIdForOrganization({
+      kind: "bugs",
+      organizationId: input.organizationId,
+    })
     if (!listPublicId) {
       return
     }

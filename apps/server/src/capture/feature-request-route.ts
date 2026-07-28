@@ -1,6 +1,6 @@
 import {
   createKanCard,
-  getKanFeatureRequestsListPublicId,
+  getKanListPublicIdForOrganization,
 } from "@crikket/kan/client"
 import { ORPCError } from "@orpc/server"
 import { z } from "zod"
@@ -44,7 +44,10 @@ export async function handleFeatureRequest(input: {
       (await input.request.json()) as unknown
     )
 
-    const listPublicId = getKanFeatureRequestsListPublicId()
+    const listPublicId = getKanListPublicIdForOrganization({
+      kind: "featureRequests",
+      organizationId: authorization.organizationId,
+    })
     if (!listPublicId) {
       throw new ORPCError("BAD_REQUEST", {
         message: "Kan feature-request integration is not configured.",

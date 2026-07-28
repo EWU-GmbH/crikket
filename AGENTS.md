@@ -22,6 +22,7 @@
 - Services im Stack: `postgres`, `migrate`, `server`, `web`, `caddy`
 - **Images werden lokal auf dem Droplet gebaut** (`pull_policy: never`), Tag-Schema: `ewu-crikket-{server,web}:master-<shortsha>`
 - **`/crikket-capture.js` wird NICHT aus dem Image ausgeliefert:** Caddy serviert die Datei statisch aus dem Host-Verzeichnis `/data/coolify/services/***REMOVED***/static/` (bind mount). Sie muss nach jedem Web-Image-Build manuell aktualisiert werden — siehe Deployment-Flow Schritt 2.
+- **kan-Integration:** Bug-Reports und Widget-Feature-Requests werden an kan gesynct (`https://kan.ewu.tools`, separater Dienst, nicht auf diesem Droplet). Env in der Service-`.env`: `KAN_BASE_URL`, `KAN_API_KEY`, `KAN_BUGS_LIST_PUBLIC_ID`, `KAN_FEATURE_REQUESTS_LIST_PUBLIC_ID` (unset = No-op). Per-Org-Routing via `KAN_ORG_LISTS_JSON`: JSON-Mapping `{"<organizationId>":{"bugs":"<listPublicId>","featureRequests":"<listPublicId>"}}` — Org-spezifische Listen gewinnen, sonst Fallback auf die globalen Listen. Aktuell: EWU-Org → Businessplan-Board, CDS-Org → CDS-Board.
 
 ### Deployment-Flow (manuell per SSH)
 

@@ -59,6 +59,8 @@ export const env = createEnv({
     KAN_API_KEY: z.string().min(1).optional(),
     KAN_BUGS_LIST_PUBLIC_ID: z.string().min(12).max(12).optional(),
     KAN_FEATURE_REQUESTS_LIST_PUBLIC_ID: z.string().min(12).max(12).optional(),
+    // Per-org routing: {"<organizationId>":{"bugs":"<listPublicId>","featureRequests":"<listPublicId>"}}
+    KAN_ORG_LISTS_JSON: z.string().min(2).optional(),
     NODE_ENV: z
       .enum(["development", "production", "staging"])
       .default("development"),
