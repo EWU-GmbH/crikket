@@ -1,3 +1,4 @@
+import { notifyOwnersAboutNewSubmissionInBackground } from "@crikket/bug-reports/lib/notifications/notify-new-report"
 import { db } from "@crikket/db"
 import { featureRequest } from "@crikket/db/schema/feature-request"
 import {
@@ -95,6 +96,17 @@ export async function handleFeatureRequest(input: {
           error
         )
       })
+
+    // Notify org owners about the new feature request.
+    notifyOwnersAboutNewSubmissionInBackground(
+      {
+        kind: "feature-request",
+        organizationId: authorization.organizationId,
+        title: body.title,
+        reporterEmail: body.reporterEmail,
+      },
+      `new feature-request ${card.publicId}`
+    )
 
     return buildJsonResponse(
       {

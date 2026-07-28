@@ -37,6 +37,7 @@ import {
   processBugReportIngestionJob,
   queueBugReportIngestionJob,
 } from "./ingestion-jobs"
+import { notifyOwnersAboutNewSubmissionInBackground } from "./notifications/notify-new-report"
 import { getStorageProvider } from "./storage"
 import {
   buildFallbackTitle,
@@ -479,6 +480,20 @@ export async function finalizeBugReportUpload(input: {
     priority: uploadSession.priority,
     sharePath: `/s/${uploadSession.id}`,
   })
+
+  // Notify org owners about the new report (excludes the logged-in submitter).
+  notifyOwnersAboutNewSubmissionInBackground(
+    {
+      kind: "bug-report",
+      organizationId: uploadSession.organizationId,
+      title: uploadSession.title || `Crikket bug ${uploadSession.id}`,
+      priority: uploadSession.priority,
+      reporterEmail: uploadSession.reporterEmail,
+      reportId: uploadSession.id,
+      excludeUserId: uploadSession.reporterId,
+    },
+    `new bug-report ${uploadSession.id}`
+  )
 
   return {
     id: uploadSession.id,
