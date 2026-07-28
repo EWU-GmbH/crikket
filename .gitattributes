@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings — they run on Linux (droplet deploys,
+# Docker entrypoints). git archive on Windows with core.autocrlf=true would
+# otherwise export them with CRLF and break shebang execution in containers.
+*.sh text eol=lf
