@@ -30,7 +30,10 @@ import {
   getDebuggerSessionSnapshot,
   markDebuggerRecordingStarted,
 } from "@/lib/bug-report-debugger/client"
-import { submitBugReportWithUploads } from "@/lib/bug-report-upload"
+import {
+  type BugReportExtraAttachmentInput,
+  submitBugReportWithUploads,
+} from "@/lib/bug-report-upload"
 import {
   buildCaptureContextSubmissionData,
   type DebuggerCaptureSummary,
@@ -285,6 +288,7 @@ function App() {
     title: string
     description: string
     priority: Priority
+    extraAttachments: BugReportExtraAttachmentInput[]
   }) => {
     const blob = captureType === "video" ? recordedBlob : screenshotBlob
     if (!blob || blob.size === 0) {
@@ -328,6 +332,7 @@ function App() {
         deviceInfo: getDeviceInfo(),
         debuggerPayload: debuggerSubmission.payload,
         debuggerSummary: debuggerSubmission.summary,
+        extraAttachments: values.extraAttachments,
       })
 
       if (debuggerSubmission.sessionId) {

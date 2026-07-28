@@ -21,7 +21,7 @@ const faqItems = [
   {
     question: "Can I capture both video and screenshots?",
     answer:
-      "Yes. Crikket supports both video and screenshot bug report uploads.",
+      "Yes. Crikket supports video and screenshot captures. You can also add extra screenshots and upload files with a report.",
   },
   {
     question: "How can I share a report?",

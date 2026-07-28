@@ -1,6 +1,12 @@
 import { Separator } from "@crikket/ui/components/ui/separator"
 import { cn } from "@crikket/ui/lib/utils"
-import { Globe, Info, MousePointerClick, Terminal } from "lucide-react"
+import {
+  FileText,
+  Globe,
+  Info,
+  MousePointerClick,
+  Terminal,
+} from "lucide-react"
 import type { ReactNode } from "react"
 
 import { NetworkRequestsPanel } from "./network-requests-panel"
@@ -122,6 +128,46 @@ export function BugReportSidebar({
                     {data.description || "No description provided."}
                   </p>
                 </div>
+                {data.attachments && data.attachments.length > 0 ? (
+                  <div className="pt-2">
+                    <span className="mb-2 block font-medium text-muted-foreground text-xs">
+                      Additional attachments
+                    </span>
+                    <ul className="space-y-2">
+                      {data.attachments.map((attachment) => (
+                        <li key={attachment.id}>
+                          {attachment.kind === "screenshot" &&
+                          attachment.url ? (
+                            <a
+                              className="block overflow-hidden rounded-md border"
+                              href={attachment.url}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              <img
+                                alt={attachment.filename ?? "Screenshot"}
+                                className="max-h-40 w-full bg-muted/20 object-contain"
+                                src={attachment.url}
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              className="flex items-center gap-2 rounded-md border px-2 py-2 text-sm hover:bg-muted/40"
+                              href={attachment.url ?? undefined}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              <FileText className="h-4 w-4 shrink-0 opacity-70" />
+                              <span className="truncate">
+                                {attachment.filename ?? "Attachment"}
+                              </span>
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
