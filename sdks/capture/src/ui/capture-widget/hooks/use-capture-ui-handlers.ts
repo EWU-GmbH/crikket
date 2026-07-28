@@ -87,6 +87,29 @@ export function useCaptureUiHandlers(
           }
         })
       },
+      onOpenFeatureRequest: () => {
+        input.store.openFeatureRequest()
+      },
+      onFeatureRequestTitleChange: (value) => {
+        const current = input.store.getSnapshot().featureRequestDraft
+        input.store.patchState({
+          featureRequestDraft: {
+            ...current,
+            title: value.slice(0, 200),
+          },
+          errorMessage: null,
+        })
+      },
+      onFeatureRequestDescriptionChange: (value) => {
+        const current = input.store.getSnapshot().featureRequestDraft
+        input.store.patchState({
+          featureRequestDraft: {
+            ...current,
+            description: value.slice(0, 4000),
+          },
+          errorMessage: null,
+        })
+      },
       onStopRecording: () => {
         startBusyTask(async () => {
           try {
@@ -105,6 +128,30 @@ export function useCaptureUiHandlers(
 
         return input.callbacks
           .onSubmit(draft, options)
+          .catch((error) => {
+            input.store.showError(toUserError(error))
+          })
+          .finally(() => {
+            setIsSubmitPending(false)
+          })
+      },
+      onSubmitFeatureRequest: () => {
+        const draft = input.store.getSnapshot().featureRequestDraft
+        if (!draft.title.trim()) {
+          input.store.showError("Title is required.")
+          return Promise.resolve()
+        }
+
+        setIsSubmitPending(true)
+        input.store.patchState({
+          errorMessage: null,
+        })
+
+        return input.callbacks
+          .onSubmitFeatureRequest(draft)
+          .then(() => {
+            input.store.showSuccess("")
+          })
           .catch((error) => {
             input.store.showError(toUserError(error))
           })

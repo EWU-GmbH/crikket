@@ -54,6 +54,11 @@ export const env = createEnv({
     CAPTURE_SUBMIT_TOKEN_SECRET: z.string().min(32).optional(),
     TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+    // EWU Kan integration (server-side only — never expose to the widget)
+    KAN_BASE_URL: z.url().optional(),
+    KAN_API_KEY: z.string().min(1).optional(),
+    KAN_BUGS_LIST_PUBLIC_ID: z.string().min(12).max(12).optional(),
+    KAN_FEATURE_REQUESTS_LIST_PUBLIC_ID: z.string().min(12).max(12).optional(),
     NODE_ENV: z
       .enum(["development", "production", "staging"])
       .default("development"),

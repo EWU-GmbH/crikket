@@ -17,6 +17,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
+import { handleFeatureRequest } from "./capture/feature-request-route"
 import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
@@ -105,7 +106,8 @@ app.use(
       if (
         (c.req.path === "/api/embed/capture-token" ||
           c.req.path === "/api/embed/bug-report-upload-session" ||
-          c.req.path === "/api/embed/bug-report-finalize") &&
+          c.req.path === "/api/embed/bug-report-finalize" ||
+          c.req.path === "/api/embed/feature-requests") &&
         origin.trim().length > 0
       ) {
         return origin
@@ -141,6 +143,11 @@ app.post("/api/embed/bug-report-finalize", (c) => {
   return handleCaptureFinalize({
     request: c.req.raw,
     shareOrigin: captureShareOrigin,
+  })
+})
+app.post("/api/embed/feature-requests", (c) => {
+  return handleFeatureRequest({
+    request: c.req.raw,
   })
 })
 

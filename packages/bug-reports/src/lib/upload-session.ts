@@ -466,6 +466,16 @@ export async function finalizeBugReportUpload(input: {
     })
   }
 
+  // Sync to EWU Kan "Bugs" list (server-side; never blocks report creation).
+  syncBugReportToKan({
+    id: uploadSession.id,
+    title: uploadSession.title,
+    description: uploadSession.description,
+    url: uploadSession.url,
+    priority: uploadSession.priority,
+    sharePath: `/s/${uploadSession.id}`,
+  })
+
   return {
     id: uploadSession.id,
     shareUrl: `/s/${uploadSession.id}`,
@@ -698,6 +708,46 @@ function resolveSubmissionStatus(input: {
   return failedDebuggerIngestion
     ? BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed
     : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
+}
+
+async function syncBugReportToKan(input: {
+  id: string
+  title: string
+  description: string | null
+  url: string | null
+  priority: string | null
+  sharePath: string
+}): Promise<void> {
+  try {
+    const { createKanCardInBackground, getKanBugsListPublicId } = await import(
+      "@crikket/kan/client"
+    )
+    const listPublicId = getKanBugsListPublicId()
+    if (!listPublicId) {
+      return
+    }
+
+    const details = [
+      input.description?.trim() || "",
+      input.url ? `Page: ${input.url}` : "",
+      input.priority ? `Priority: ${input.priority}` : "",
+      `Crikket report: ${input.sharePath}`,
+      `Report ID: ${input.id}`,
+    ]
+      .filter((line) => line.length > 0)
+      .join("\n\n")
+
+    createKanCardInBackground(
+      {
+        title: input.title || `Crikket bug ${input.id}`,
+        description: details,
+        listPublicId,
+      },
+      `bug-report ${input.id}`
+    )
+  } catch (error) {
+    console.error("[kan] failed to queue bug-report sync", error)
+  }
 }
 
 async function finalizeBugReportDebuggerIngestion(input: {

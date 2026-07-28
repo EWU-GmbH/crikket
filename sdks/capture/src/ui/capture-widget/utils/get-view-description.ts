@@ -5,6 +5,10 @@ export function getViewDescription(view: CaptureUiState["view"]): string {
     return "Choose how to capture"
   }
 
+  if (view === "feature-request") {
+    return "Suggest a feature"
+  }
+
   if (view === "review") {
     return "Review and submit"
   }
