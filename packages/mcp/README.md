@@ -6,25 +6,35 @@ Stdio MCP server that lets Cursor read and update private Crikket bug reports us
 
 1. In Crikket, open **Settings → API Tokens** and create a token (admin/owner).
 2. Copy the secret once (prefix `crk_api_…`).
-3. Add this to Cursor `~/.cursor/mcp.json` or `.cursor/mcp.json`:
+3. This repo already ships project MCP config at `.cursor/mcp.json`, which runs `scripts/crikket-mcp.sh`.
+4. Set the token in the environment Cursor uses for MCP (Cloud Agent secret name `crikket`, or `CRIKKET_API_TOKEN`).
+
+Manual / user-level config (`~/.cursor/mcp.json`).
+
+One MCP server entry = one organization (API tokens are org-scoped). For EWU + CDS:
 
 ```json
 {
   "mcpServers": {
-    "crikket": {
-      "command": "bun",
-      "args": ["run", "/absolute/path/to/crikket/packages/mcp/src/cli.ts"],
+    "crikket-ewu": {
+      "command": "${workspaceFolder}/scripts/crikket-mcp.sh",
       "env": {
         "CRIKKET_API_TOKEN": "crk_api_…",
-        "CRIKKET_SERVER_URL": "https://api.crikket.io"
+        "CRIKKET_SERVER_URL": "https://report.ewu.tools"
+      }
+    },
+    "crikket-cds": {
+      "command": "${workspaceFolder}/scripts/crikket-mcp.sh",
+      "env": {
+        "CRIKKET_API_TOKEN": "crk_api_…",
+        "CRIKKET_SERVER_URL": "https://report.ewu.tools"
       }
     }
   }
 }
 ```
 
-For self-hosted Crikket, set `CRIKKET_SERVER_URL` to your API origin (the same host that serves `/rpc`).
-
+Create each token under the matching org: **Settings → API Tokens**. For self-hosted Crikket, set `CRIKKET_SERVER_URL` to your API origin (the same host that serves `/rpc`).
 ## Tools
 
 | Tool | Description |

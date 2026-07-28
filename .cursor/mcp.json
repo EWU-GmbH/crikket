@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "crikket-ewu": {
+      "command": "${workspaceFolder}/scripts/crikket-mcp.sh",
+      "env": {
+        "CRIKKET_SERVER_URL": "https://report.ewu.tools"
+      }
+    },
+    "crikket-cds": {
+      "command": "${workspaceFolder}/scripts/crikket-mcp.sh",
+      "env": {
+        "CRIKKET_SERVER_URL": "https://report.ewu.tools"
+      }
+    }
+  }
+}
