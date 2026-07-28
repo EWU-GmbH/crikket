@@ -46,3 +46,19 @@ export const BUG_REPORT_SORT_OPTIONS = {
 
 export type BugReportSort =
   (typeof BUG_REPORT_SORT_OPTIONS)[keyof typeof BUG_REPORT_SORT_OPTIONS]
+
+export const BUG_REPORT_EXTRA_ATTACHMENT_KIND_OPTIONS = {
+  screenshot: "screenshot",
+  file: "file",
+} as const
+
+export type BugReportExtraAttachmentKind =
+  (typeof BUG_REPORT_EXTRA_ATTACHMENT_KIND_OPTIONS)[keyof typeof BUG_REPORT_EXTRA_ATTACHMENT_KIND_OPTIONS]
+
+export const BUG_REPORT_EXTRA_ATTACHMENT_KIND_VALUES = [
+  BUG_REPORT_EXTRA_ATTACHMENT_KIND_OPTIONS.screenshot,
+  BUG_REPORT_EXTRA_ATTACHMENT_KIND_OPTIONS.file,
+] as const
+
+export const MAX_EXTRA_ATTACHMENTS_PER_REPORT = 10
+export const MAX_EXTRA_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024

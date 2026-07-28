@@ -99,6 +99,49 @@ export const bugReportUploadSession = pgTable(
   ]
 )
 
+export const bugReportAttachment = pgTable(
+  "bug_report_attachment",
+  {
+    id: text("id").primaryKey(),
+    bugReportId: text("bug_report_id")
+      .notNull()
+      .references(() => bugReport.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // screenshot | file
+    sortOrder: integer("sort_order").default(0).notNull(),
+    filename: text("filename"),
+    objectKey: text("object_key").notNull().unique(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    uploadedAt: timestamp("uploaded_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("bug_report_attachment_bugReportId_idx").on(table.bugReportId),
+  ]
+)
+
+export const bugReportUploadSessionAttachment = pgTable(
+  "bug_report_upload_session_attachment",
+  {
+    id: text("id").primaryKey(),
+    uploadSessionId: text("upload_session_id")
+      .notNull()
+      .references(() => bugReportUploadSession.id, { onDelete: "cascade" }),
+    clientId: text("client_id").notNull(),
+    kind: text("kind").notNull(), // screenshot | file
+    sortOrder: integer("sort_order").default(0).notNull(),
+    filename: text("filename"),
+    objectKey: text("object_key").notNull().unique(),
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("bug_report_upload_session_attachment_sessionId_idx").on(
+      table.uploadSessionId
+    ),
+  ]
+)
+
 export const bugReportLog = pgTable(
   "bug_report_log",
   {
@@ -244,10 +287,38 @@ export const bugReportRelations = relations(bugReport, ({ one, many }) => ({
     fields: [bugReport.reporterId],
     references: [user.id],
   }),
+  attachments: many(bugReportAttachment),
   logs: many(bugReportLog),
   networkRequests: many(bugReportNetworkRequest),
   actions: many(bugReportAction),
 }))
+
+export const bugReportAttachmentRelations = relations(
+  bugReportAttachment,
+  ({ one }) => ({
+    bugReport: one(bugReport, {
+      fields: [bugReportAttachment.bugReportId],
+      references: [bugReport.id],
+    }),
+  })
+)
+
+export const bugReportUploadSessionRelations = relations(
+  bugReportUploadSession,
+  ({ many }) => ({
+    attachments: many(bugReportUploadSessionAttachment),
+  })
+)
+
+export const bugReportUploadSessionAttachmentRelations = relations(
+  bugReportUploadSessionAttachment,
+  ({ one }) => ({
+    uploadSession: one(bugReportUploadSession, {
+      fields: [bugReportUploadSessionAttachment.uploadSessionId],
+      references: [bugReportUploadSession.id],
+    }),
+  })
+)
 
 export const bugReportLogRelations = relations(bugReportLog, ({ one }) => ({
   bugReport: one(bugReport, {

@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState } from "react"
+import {
+  MAX_EXTRA_ATTACHMENT_SIZE_BYTES,
+  MAX_EXTRA_ATTACHMENTS_PER_REPORT,
+} from "@crikket/shared/constants/bug-report"
+import { useEffect, useId, useRef, useState } from "react"
 import type { CaptureSubmissionDraft } from "../../../types"
 import type { CaptureReviewSubmitOptions, CaptureUiState } from "../../types"
 import { MediaPreview } from "../components/media-preview"
@@ -27,6 +31,31 @@ interface ReviewFormSectionProps {
   ) => Promise<void>
 }
 
+interface PendingExtraAttachment {
+  clientId: string
+  kind: "screenshot" | "file"
+  blob: Blob
+  filename?: string
+  previewUrl?: string
+}
+
+function createClientId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function formatBytes(size: number): string {
+  if (size < 1024) {
+    return `${size} B`
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export function ReviewFormSection({
   formKey,
   isSubmitting,
@@ -35,6 +64,12 @@ export function ReviewFormSection({
   onSubmit,
 }: ReviewFormSectionProps): React.JSX.Element {
   const [annotations, setAnnotations] = useState<ScreenshotAnnotation[]>([])
+  const [extraAttachments, setExtraAttachments] = useState<
+    PendingExtraAttachment[]
+  >([])
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const screenshotInputId = useId()
+  const fileInputId = useId()
   const previousMediaObjectUrlRef = useRef(state.media?.objectUrl)
 
   useEffect(() => {
@@ -44,12 +79,31 @@ export function ReviewFormSection({
 
     previousMediaObjectUrlRef.current = state.media?.objectUrl
     setAnnotations([])
+    setExtraAttachments((current) => {
+      for (const attachment of current) {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl)
+        }
+      }
+      return []
+    })
+    setAttachmentError(null)
   }, [state.media?.objectUrl])
+
+  useEffect(() => {
+    return () => {
+      for (const attachment of extraAttachments) {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl)
+        }
+      }
+    }
+  }, [extraAttachments])
 
   const form = useReviewForm({
     initialDraft: state.reviewDraft,
     onSubmit: async (draft) => {
-      let submitOptions: CaptureReviewSubmitOptions | undefined
+      let submitOptions: CaptureReviewSubmitOptions = {}
 
       if (state.media?.captureType === "screenshot" && annotations.length > 0) {
         const screenshotBlobOverride = await createAnnotatedScreenshotBlob({
@@ -57,14 +111,83 @@ export function ReviewFormSection({
           imageUrl: state.media.objectUrl,
         })
 
-        submitOptions = screenshotBlobOverride
-          ? { screenshotBlobOverride }
-          : undefined
+        if (screenshotBlobOverride) {
+          submitOptions = { screenshotBlobOverride }
+        }
       }
 
-      onSubmit(draft, submitOptions)
+      if (extraAttachments.length > 0) {
+        submitOptions = {
+          ...submitOptions,
+          extraAttachments: extraAttachments.map((attachment) => ({
+            clientId: attachment.clientId,
+            kind: attachment.kind,
+            blob: attachment.blob,
+            filename: attachment.filename,
+          })),
+        }
+      }
+
+      onSubmit(
+        draft,
+        Object.keys(submitOptions).length > 0 ? submitOptions : undefined
+      )
     },
   })
+
+  const addFiles = (
+    files: FileList | null,
+    kind: "screenshot" | "file"
+  ): void => {
+    if (!files || files.length === 0) {
+      return
+    }
+
+    const nextAttachments = [...extraAttachments]
+    let error: string | null = null
+
+    for (const file of Array.from(files)) {
+      if (nextAttachments.length >= MAX_EXTRA_ATTACHMENTS_PER_REPORT) {
+        error = `You can attach at most ${MAX_EXTRA_ATTACHMENTS_PER_REPORT} additional files.`
+        break
+      }
+
+      if (file.size > MAX_EXTRA_ATTACHMENT_SIZE_BYTES) {
+        error = `"${file.name}" is too large. Keep each additional file under 25 MB.`
+        continue
+      }
+
+      if (kind === "screenshot" && !file.type.startsWith("image/")) {
+        error = `"${file.name}" is not an image.`
+        continue
+      }
+
+      nextAttachments.push({
+        clientId: createClientId(),
+        kind,
+        blob: file,
+        filename: file.name,
+        previewUrl:
+          kind === "screenshot" ? URL.createObjectURL(file) : undefined,
+      })
+    }
+
+    setExtraAttachments(nextAttachments)
+    setAttachmentError(error)
+  }
+
+  const removeAttachment = (clientId: string): void => {
+    setExtraAttachments((current) => {
+      const target = current.find(
+        (attachment) => attachment.clientId === clientId
+      )
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl)
+      }
+      return current.filter((attachment) => attachment.clientId !== clientId)
+    })
+    setAttachmentError(null)
+  }
 
   return (
     <section
@@ -190,6 +313,99 @@ export function ReviewFormSection({
                 <FieldError errors={[form.visibleErrors.priority]} />
               ) : null}
             </Field>
+
+            <div className="grid gap-2">
+              <Label>Additional attachments</Label>
+              <p className="m-0 text-muted-foreground text-xs">
+                Add more screenshots or upload files such as logs or PDFs.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <label
+                  className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+                  htmlFor={screenshotInputId}
+                >
+                  Add screenshot
+                  <input
+                    accept="image/*"
+                    className="sr-only"
+                    disabled={state.busy || isSubmitting}
+                    id={screenshotInputId}
+                    multiple
+                    onChange={(event) => {
+                      addFiles(event.currentTarget.files, "screenshot")
+                      event.currentTarget.value = ""
+                    }}
+                    type="file"
+                  />
+                </label>
+                <label
+                  className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+                  htmlFor={fileInputId}
+                >
+                  Attach file
+                  <input
+                    className="sr-only"
+                    disabled={state.busy || isSubmitting}
+                    id={fileInputId}
+                    multiple
+                    onChange={(event) => {
+                      addFiles(event.currentTarget.files, "file")
+                      event.currentTarget.value = ""
+                    }}
+                    type="file"
+                  />
+                </label>
+              </div>
+              {attachmentError ? (
+                <p className="m-0 text-destructive text-xs">
+                  {attachmentError}
+                </p>
+              ) : null}
+              {extraAttachments.length > 0 ? (
+                <ul className="m-0 grid list-none gap-2 p-0">
+                  {extraAttachments.map((attachment) => (
+                    <li
+                      className="flex items-center gap-2 rounded-md border border-border/70 px-2 py-2"
+                      key={attachment.clientId}
+                    >
+                      {attachment.previewUrl ? (
+                        <img
+                          alt=""
+                          className="h-10 w-10 rounded object-cover"
+                          height={40}
+                          src={attachment.previewUrl}
+                          width={40}
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-[10px] uppercase">
+                          file
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="m-0 truncate text-xs">
+                          {attachment.filename ?? attachment.kind}
+                        </p>
+                        <p className="m-0 text-[11px] text-muted-foreground">
+                          {attachment.kind} ·{" "}
+                          {formatBytes(attachment.blob.size)}
+                        </p>
+                      </div>
+                      <Button
+                        disabled={state.busy || isSubmitting}
+                        onClick={() => {
+                          removeAttachment(attachment.clientId)
+                        }}
+                        type="button"
+                        variant="outline"
+                      >
+                        Remove
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <Button
                 className="w-full"

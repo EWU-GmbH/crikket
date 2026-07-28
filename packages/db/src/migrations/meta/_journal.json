@@ -15,6 +15,13 @@
       "when": 1785173432964,
       "tag": "0001_glorious_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785186000000,
+      "tag": "0002_multi_attachments",
+      "breakpoints": true
     }
   ]
 }

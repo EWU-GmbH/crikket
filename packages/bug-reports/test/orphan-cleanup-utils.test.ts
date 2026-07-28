@@ -14,6 +14,22 @@ describe("resolvePendingBugReportUploadSessionArtifactKeys", () => {
         "organizations/org_123/bug-reports/br_123/capture/video.webm",
       debuggerObjectKey:
         "organizations/org_123/bug-reports/br_123/debugger/payload.json.gz",
+      attachmentObjectKeys: [],
     })
+  })
+
+  it("includes staged extra attachment object keys", () => {
+    const result = resolvePendingBugReportUploadSessionArtifactKeys({
+      captureKey:
+        "organizations/org_123/bug-reports/br_123/capture/screenshot.png",
+      debuggerKey: null,
+      attachmentObjectKeys: [
+        "organizations/org_123/bug-reports/br_123/attachments/files/att_1/notes.txt",
+      ],
+    })
+
+    expect(result.attachmentObjectKeys).toEqual([
+      "organizations/org_123/bug-reports/br_123/attachments/files/att_1/notes.txt",
+    ])
   })
 })

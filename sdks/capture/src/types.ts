@@ -124,7 +124,15 @@ export interface CaptureSubmitRequest {
     debuggerPayload?: BugReportDebuggerPayload
     debuggerSummary: CaptureDebuggerSummary
     media: Blob
+    extraAttachments?: CaptureExtraAttachment[]
   }
+}
+
+export interface CaptureExtraAttachment {
+  clientId: string
+  kind: "screenshot" | "file"
+  blob: Blob
+  filename?: string
 }
 
 export interface CaptureSubmitResult {

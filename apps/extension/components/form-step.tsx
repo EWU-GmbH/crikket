@@ -1,4 +1,8 @@
 import {
+  MAX_EXTRA_ATTACHMENT_SIZE_BYTES,
+  MAX_EXTRA_ATTACHMENTS_PER_REPORT,
+} from "@crikket/shared/constants/bug-report"
+import {
   PRIORITY_OPTIONS,
   type Priority,
 } from "@crikket/shared/constants/priorities"
@@ -15,8 +19,16 @@ import {
 import { Textarea } from "@crikket/ui/components/ui/textarea"
 import { useForm } from "@tanstack/react-form"
 import { AlertTriangle } from "lucide-react"
-import { type SyntheticEvent, useCallback, useEffect, useRef } from "react"
+import {
+  type SyntheticEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react"
 import * as z from "zod"
+import type { BugReportExtraAttachmentInput } from "@/lib/bug-report-upload"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -37,6 +49,10 @@ interface DebuggerSummary {
   networkRequests: number
 }
 
+interface PendingExtraAttachment extends BugReportExtraAttachmentInput {
+  previewUrl?: string
+}
+
 interface FormStepProps {
   captureType: "video" | "screenshot"
   previewUrl: string | null
@@ -50,6 +66,7 @@ interface FormStepProps {
     title: string
     description: string
     priority: Priority
+    extraAttachments: BugReportExtraAttachmentInput[]
   }) => void
   onCancel: () => void
 }
@@ -58,6 +75,23 @@ interface FormValues {
   title: string
   description: string
   priority: Priority
+}
+
+function createClientId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function formatBytes(size: number): string {
+  if (size < 1024) {
+    return `${size} B`
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export function FormStep({
@@ -77,6 +111,12 @@ export function FormStep({
     description: "",
     priority: PRIORITY_OPTIONS.none,
   }
+  const [extraAttachments, setExtraAttachments] = useState<
+    PendingExtraAttachment[]
+  >([])
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const screenshotInputId = useId()
+  const fileInputId = useId()
 
   const form = useForm({
     defaultValues,
@@ -88,6 +128,12 @@ export function FormStep({
         title: value.title,
         description: value.description,
         priority: value.priority,
+        extraAttachments: extraAttachments.map((attachment) => ({
+          clientId: attachment.clientId,
+          kind: attachment.kind,
+          blob: attachment.blob,
+          filename: attachment.filename,
+        })),
       })
     },
   })
@@ -104,6 +150,70 @@ export function FormStep({
       form.setFieldValue("title", initialTitle)
     }
   }, [form, initialTitle])
+
+  useEffect(() => {
+    return () => {
+      for (const attachment of extraAttachments) {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl)
+        }
+      }
+    }
+  }, [extraAttachments])
+
+  const addFiles = (
+    files: FileList | null,
+    kind: "screenshot" | "file"
+  ): void => {
+    if (!files || files.length === 0) {
+      return
+    }
+
+    const nextAttachments = [...extraAttachments]
+    let error: string | null = null
+
+    for (const file of Array.from(files)) {
+      if (nextAttachments.length >= MAX_EXTRA_ATTACHMENTS_PER_REPORT) {
+        error = `You can attach at most ${MAX_EXTRA_ATTACHMENTS_PER_REPORT} additional files.`
+        break
+      }
+
+      if (file.size > MAX_EXTRA_ATTACHMENT_SIZE_BYTES) {
+        error = `"${file.name}" is too large. Keep each additional file under 25 MB.`
+        continue
+      }
+
+      if (kind === "screenshot" && !file.type.startsWith("image/")) {
+        error = `"${file.name}" is not an image.`
+        continue
+      }
+
+      nextAttachments.push({
+        clientId: createClientId(),
+        kind,
+        blob: file,
+        filename: file.name,
+        previewUrl:
+          kind === "screenshot" ? URL.createObjectURL(file) : undefined,
+      })
+    }
+
+    setExtraAttachments(nextAttachments)
+    setAttachmentError(error)
+  }
+
+  const removeAttachment = (clientId: string): void => {
+    setExtraAttachments((current) => {
+      const target = current.find(
+        (attachment) => attachment.clientId === clientId
+      )
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl)
+      }
+      return current.filter((attachment) => attachment.clientId !== clientId)
+    })
+    setAttachmentError(null)
+  }
 
   const handleVideoLoadedMetadata = useCallback(
     (event: SyntheticEvent<HTMLVideoElement>) => {
@@ -293,6 +403,98 @@ export function FormStep({
               )
             }}
           </form.Field>
+
+          <section className="space-y-3 rounded-xl border bg-muted/10 p-4">
+            <div>
+              <p className="font-medium text-sm">Additional attachments</p>
+              <p className="text-muted-foreground text-xs">
+                Add more screenshots or upload files such as logs or PDFs.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label
+                className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-input bg-background px-3 text-sm"
+                htmlFor={screenshotInputId}
+              >
+                Add screenshot
+                <input
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={isBusy}
+                  id={screenshotInputId}
+                  multiple
+                  onChange={(event) => {
+                    addFiles(event.currentTarget.files, "screenshot")
+                    event.currentTarget.value = ""
+                  }}
+                  type="file"
+                />
+              </label>
+              <label
+                className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-input bg-background px-3 text-sm"
+                htmlFor={fileInputId}
+              >
+                Attach file
+                <input
+                  className="sr-only"
+                  disabled={isBusy}
+                  id={fileInputId}
+                  multiple
+                  onChange={(event) => {
+                    addFiles(event.currentTarget.files, "file")
+                    event.currentTarget.value = ""
+                  }}
+                  type="file"
+                />
+              </label>
+            </div>
+            {attachmentError ? (
+              <p className="text-destructive text-xs">{attachmentError}</p>
+            ) : null}
+            {extraAttachments.length > 0 ? (
+              <ul className="space-y-2">
+                {extraAttachments.map((attachment) => (
+                  <li
+                    className="flex items-center gap-2 rounded-md border px-2 py-2"
+                    key={attachment.clientId}
+                  >
+                    {attachment.previewUrl ? (
+                      <img
+                        alt=""
+                        className="h-10 w-10 rounded object-cover"
+                        height={40}
+                        src={attachment.previewUrl}
+                        width={40}
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-[10px] uppercase">
+                        file
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs">
+                        {attachment.filename ?? attachment.kind}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {attachment.kind} · {formatBytes(attachment.blob.size)}
+                      </p>
+                    </div>
+                    <Button
+                      disabled={isBusy}
+                      onClick={() => {
+                        removeAttachment(attachment.clientId)
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
         </div>
 
         {preSubmitWarnings.length > 0 ? (
@@ -338,5 +540,8 @@ export function FormStep({
 }
 
 function formatPriorityLabel(priority: Priority): string {
-  return `${priority.charAt(0).toUpperCase()}${priority.slice(1)}`
+  return priority
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
 }

@@ -228,6 +228,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       draft,
       media,
       review: this.currentReview,
+      submitOptions: options,
       submitTransport: this.submitTransport,
     })
 

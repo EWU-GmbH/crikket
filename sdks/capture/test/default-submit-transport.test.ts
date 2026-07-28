@@ -203,6 +203,130 @@ describe("default submit transport regression", () => {
     })
   })
 
+  it("uploads extra attachments and includes them in finalize", async () => {
+    const fetchMock = installFetchMock(
+      (
+        input: Parameters<typeof fetch>[0],
+        init?: Parameters<typeof fetch>[1]
+      ) => {
+        if (String(input).endsWith("/capture-token")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ token: "tok_123" }), {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            })
+          )
+        }
+
+        if (String(input).endsWith("/bug-report-upload-session")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                bugReportId: "br_456",
+                captureUpload: {
+                  headers: { "content-type": "image/png" },
+                  method: "PUT",
+                  url: "https://storage.example.com/capture-upload",
+                },
+                extraAttachmentUploads: [
+                  {
+                    clientId: "client_shot_1",
+                    id: "att_1",
+                    kind: "screenshot",
+                    upload: {
+                      headers: { "content-type": "image/png" },
+                      method: "PUT",
+                      url: "https://storage.example.com/extra-screenshot",
+                    },
+                  },
+                  {
+                    clientId: "client_file_1",
+                    id: "att_2",
+                    kind: "file",
+                    upload: {
+                      headers: { "content-type": "application/pdf" },
+                      method: "PUT",
+                      url: "https://storage.example.com/extra-file",
+                    },
+                  },
+                ],
+                finalizeToken: "fin_456",
+              }),
+              {
+                status: 200,
+                headers: {
+                  "content-type": "application/json",
+                },
+              }
+            )
+          )
+        }
+
+        if (
+          String(input).startsWith("https://storage.example.com/") &&
+          init?.method === "PUT"
+        ) {
+          return Promise.resolve(new Response(null, { status: 200 }))
+        }
+
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ id: "br_456", shareUrl: "/s/br_456" }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          )
+        )
+      }
+    )
+
+    const result = await defaultSubmitTransport({
+      ...request,
+      report: {
+        ...request.report,
+        extraAttachments: [
+          {
+            clientId: "client_shot_1",
+            kind: "screenshot",
+            blob: new Blob(["shot"], { type: "image/png" }),
+            filename: "extra.png",
+          },
+          {
+            clientId: "client_file_1",
+            kind: "file",
+            blob: new Blob(["pdf"], { type: "application/pdf" }),
+            filename: "notes.pdf",
+          },
+        ],
+      },
+    })
+
+    expect(result.reportId).toBe("br_456")
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      "https://api.crikket.io/api/embed/capture-token",
+      "https://api.crikket.io/api/embed/bug-report-upload-session",
+      "https://storage.example.com/capture-upload",
+      "https://storage.example.com/extra-screenshot",
+      "https://storage.example.com/extra-file",
+      "https://api.crikket.io/api/embed/bug-report-finalize",
+    ])
+
+    const finalizeBody = JSON.parse(
+      String(fetchMock.mock.calls[5]?.[1]?.body ?? "{}")
+    ) as {
+      extraAttachments?: Array<{ id: string; sizeBytes?: number }>
+    }
+    expect(finalizeBody.extraAttachments).toEqual([
+      { id: "att_1", contentType: "image/png", sizeBytes: 4 },
+      { id: "att_2", contentType: "application/pdf", sizeBytes: 3 },
+    ])
+  })
+
   it("surfaces json error payloads and falls back when the response is not json", async () => {
     installFetchMock(
       (

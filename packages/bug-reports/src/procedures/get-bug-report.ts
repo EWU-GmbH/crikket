@@ -42,6 +42,12 @@ export const getBugReportById = o
       with: {
         reporter: true,
         organization: true,
+        attachments: {
+          orderBy: (attachments, { asc: orderAsc }) => [
+            orderAsc(attachments.sortOrder),
+            orderAsc(attachments.createdAt),
+          ],
+        },
       },
     })
 
@@ -71,6 +77,25 @@ export const getBugReportById = o
       captureKey: report.captureKey,
     })
 
+    const attachments = await Promise.all(
+      report.attachments.map(async (attachment) => {
+        const url = await resolveCaptureUrl({
+          captureKey: attachment.objectKey,
+        })
+
+        return {
+          id: attachment.id,
+          kind: attachment.kind,
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          sizeBytes: attachment.sizeBytes,
+          sortOrder: attachment.sortOrder,
+          url,
+          uploadedAt: attachment.uploadedAt?.toISOString() ?? null,
+        }
+      })
+    )
+
     return {
       id: report.id,
       title: report.title,
@@ -81,6 +106,7 @@ export const getBugReportById = o
       url: report.url,
       attachmentUrl,
       attachmentType: report.attachmentType,
+      attachments,
       submissionStatus: report.submissionStatus,
       debuggerIngestionStatus: report.debuggerIngestionStatus,
       debuggerIngestionError: report.debuggerIngestionError,
