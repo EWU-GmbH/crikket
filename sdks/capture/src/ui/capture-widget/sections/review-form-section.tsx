@@ -148,17 +148,17 @@ export function ReviewFormSection({
 
     for (const file of Array.from(files)) {
       if (nextAttachments.length >= MAX_EXTRA_ATTACHMENTS_PER_REPORT) {
-        error = `You can attach at most ${MAX_EXTRA_ATTACHMENTS_PER_REPORT} additional files.`
+        error = `Sie können höchstens ${MAX_EXTRA_ATTACHMENTS_PER_REPORT} zusätzliche Dateien anhängen.`
         break
       }
 
       if (file.size > MAX_EXTRA_ATTACHMENT_SIZE_BYTES) {
-        error = `"${file.name}" is too large. Keep each additional file under 25 MB.`
+        error = `"${file.name}" ist zu groß. Jede zusätzliche Datei darf maximal 25 MB groß sein.`
         continue
       }
 
       if (kind === "screenshot" && !file.type.startsWith("image/")) {
-        error = `"${file.name}" is not an image.`
+        error = `"${file.name}" ist kein Bild.`
         continue
       }
 
@@ -197,11 +197,11 @@ export function ReviewFormSection({
       <div className="flex min-h-[320px] min-w-0 flex-col border-b bg-muted/20 lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
           <div>
-            <p className="font-medium text-sm">Review capture</p>
+            <p className="font-medium text-sm">Aufnahme prüfen</p>
             <p className="text-muted-foreground text-xs">
               {state.media?.captureType === "screenshot"
-                ? "Annotate the screenshot before submitting."
-                : "Preview the recording before submitting."}
+                ? "Bearbeiten Sie den Screenshot vor dem Absenden."
+                : "Prüfen Sie die Aufnahme vor dem Absenden."}
             </p>
           </div>
         </div>
@@ -227,10 +227,10 @@ export function ReviewFormSection({
       <div className="min-h-0 overflow-y-auto p-5">
         <div className="grid gap-4">
           <div className="grid grid-cols-3 gap-2">
-            <SummaryStat label="Actions" value={state.summary.actions} />
+            <SummaryStat label="Aktionen" value={state.summary.actions} />
             <SummaryStat label="Logs" value={state.summary.logs} />
             <SummaryStat
-              label="Network"
+              label="Netzwerk"
               value={state.summary.networkRequests}
             />
           </div>
@@ -245,7 +245,7 @@ export function ReviewFormSection({
 
           <form className="grid gap-4" onSubmit={form.handleSubmit}>
             <Field data-invalid={Boolean(form.visibleErrors.title)}>
-              <Label htmlFor={`${formKey}-title`}>Title</Label>
+              <Label htmlFor={`${formKey}-title`}>Titel</Label>
               <Input
                 aria-invalid={Boolean(form.visibleErrors.title)}
                 id={`${formKey}-title`}
@@ -256,7 +256,7 @@ export function ReviewFormSection({
                 onChange={(event) => {
                   form.setFieldValue("title", event.currentTarget.value)
                 }}
-                placeholder="Enter a title (optional)"
+                placeholder="Titel eingeben (optional)"
                 value={form.draft.title}
               />
               {form.visibleErrors.title ? (
@@ -265,7 +265,7 @@ export function ReviewFormSection({
             </Field>
 
             <Field data-invalid={Boolean(form.visibleErrors.description)}>
-              <Label htmlFor={`${formKey}-description`}>Description</Label>
+              <Label htmlFor={`${formKey}-description`}>Beschreibung</Label>
               <Textarea
                 aria-invalid={Boolean(form.visibleErrors.description)}
                 className="min-h-32 resize-y"
@@ -277,7 +277,7 @@ export function ReviewFormSection({
                 onChange={(event) => {
                   form.setFieldValue("description", event.currentTarget.value)
                 }}
-                placeholder="Enter a description (optional)"
+                placeholder="Beschreibung eingeben (optional)"
                 value={form.draft.description}
               />
               {form.visibleErrors.description ? (
@@ -286,7 +286,7 @@ export function ReviewFormSection({
             </Field>
 
             <Field data-invalid={Boolean(form.visibleErrors.priority)}>
-              <Label htmlFor={`${formKey}-priority`}>Priority</Label>
+              <Label htmlFor={`${formKey}-priority`}>Priorität</Label>
               <select
                 aria-invalid={Boolean(form.visibleErrors.priority)}
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60"
@@ -315,16 +315,17 @@ export function ReviewFormSection({
             </Field>
 
             <div className="grid gap-2">
-              <Label>Additional attachments</Label>
+              <Label>Zusätzliche Anhänge</Label>
               <p className="m-0 text-muted-foreground text-xs">
-                Add more screenshots or upload files such as logs or PDFs.
+                Fügen Sie weitere Screenshots hinzu oder laden Sie Dateien wie
+                Logs oder PDFs hoch.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <label
                   className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
                   htmlFor={screenshotInputId}
                 >
-                  Add screenshot
+                  Screenshot hinzufügen
                   <input
                     accept="image/*"
                     className="sr-only"
@@ -342,7 +343,7 @@ export function ReviewFormSection({
                   className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
                   htmlFor={fileInputId}
                 >
-                  Attach file
+                  Datei anhängen
                   <input
                     className="sr-only"
                     disabled={state.busy || isSubmitting}
@@ -378,7 +379,7 @@ export function ReviewFormSection({
                         />
                       ) : (
                         <div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-[10px] uppercase">
-                          file
+                          Datei
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
@@ -398,7 +399,7 @@ export function ReviewFormSection({
                         type="button"
                         variant="outline"
                       >
-                        Remove
+                        Entfernen
                       </Button>
                     </li>
                   ))}
@@ -412,7 +413,7 @@ export function ReviewFormSection({
                 disabled={state.busy || isSubmitting}
                 type="submit"
               >
-                Submit Report
+                Bericht absenden
               </Button>
               <Button
                 className="w-full"
@@ -421,7 +422,7 @@ export function ReviewFormSection({
                 type="button"
                 variant="outline"
               >
-                Start Over
+                Neu beginnen
               </Button>
             </div>
           </form>

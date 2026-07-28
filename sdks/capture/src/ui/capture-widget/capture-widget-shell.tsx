@@ -58,7 +58,7 @@ export function CaptureWidgetShell(props: {
                 type="button"
                 variant="outline"
               >
-                Close
+                Schließen
               </Button>
             </CardHeader>
 

@@ -248,7 +248,7 @@ export function ScreenshotAnnotationEditor(props: {
           active={tool === "draw"}
           disabled={props.disabled}
           icon={<DrawIcon className="h-4 w-4" />}
-          label="Draw"
+          label="Zeichnen"
           onClick={() => {
             setTool("draw")
           }}
@@ -257,7 +257,7 @@ export function ScreenshotAnnotationEditor(props: {
           active={tool === "highlight"}
           disabled={props.disabled}
           icon={<HighlightIcon className="h-4 w-4" />}
-          label="Highlight"
+          label="Markieren"
           onClick={() => {
             setTool("highlight")
           }}
@@ -266,7 +266,7 @@ export function ScreenshotAnnotationEditor(props: {
           active={tool === "rectangle"}
           disabled={props.disabled}
           icon={<RectangleIcon className="h-4 w-4" />}
-          label="Rectangle"
+          label="Rechteck"
           onClick={() => {
             setTool("rectangle")
           }}
@@ -318,7 +318,7 @@ export function ScreenshotAnnotationEditor(props: {
         <div className="flex min-h-full items-center justify-center">
           <div className="w-full max-w-[960px]" ref={containerRef}>
             <canvas
-              aria-label="Screenshot annotation editor"
+              aria-label="Screenshot-Bearbeitung"
               className={cn(
                 "block w-full rounded-xl bg-white shadow-sm",
                 props.disabled ? "cursor-default" : "cursor-crosshair"

@@ -17,11 +17,11 @@ export type ReviewDraftErrors = Partial<
 >
 
 export const capturePriorityOptions = [
-  { label: "Critical", value: PRIORITY_OPTIONS.critical },
-  { label: "High", value: PRIORITY_OPTIONS.high },
-  { label: "Medium", value: PRIORITY_OPTIONS.medium },
-  { label: "Low", value: PRIORITY_OPTIONS.low },
-  { label: "None", value: PRIORITY_OPTIONS.none },
+  { label: "Kritisch", value: PRIORITY_OPTIONS.critical },
+  { label: "Hoch", value: PRIORITY_OPTIONS.high },
+  { label: "Mittel", value: PRIORITY_OPTIONS.medium },
+  { label: "Niedrig", value: PRIORITY_OPTIONS.low },
+  { label: "Keine", value: PRIORITY_OPTIONS.none },
 ] as const
 
 export function validateReviewDraft(
@@ -30,22 +30,23 @@ export function validateReviewDraft(
   const errors: ReviewDraftErrors = {}
 
   if (value.title.length > 200) {
-    errors.title = "Title must be at most 200 characters."
+    errors.title = "Der Titel darf höchstens 200 Zeichen lang sein."
   }
 
   if (value.description.length > 3000) {
-    errors.description = "Description must be at most 3000 characters."
+    errors.description =
+      "Die Beschreibung darf höchstens 3000 Zeichen lang sein."
   }
 
   if (!priorityValues.has(value.priority)) {
-    errors.priority = "Select a valid priority."
+    errors.priority = "Wählen Sie eine gültige Priorität."
   }
 
   if (
     value.visibility !== undefined &&
     !visibilityValues.has(value.visibility)
   ) {
-    errors.visibility = "Select a valid visibility."
+    errors.visibility = "Wählen Sie eine gültige Sichtbarkeit."
   }
 
   return Object.keys(errors).length > 0 ? errors : undefined

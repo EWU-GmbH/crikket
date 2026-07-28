@@ -13,7 +13,7 @@ export function RecordingDock(props: {
       style={{ ["--capture-z-index" as string]: String(props.zIndex + 2) }}
     >
       <span aria-hidden="true" className="size-2 rounded-full bg-foreground" />
-      <Badge variant="secondary">Recording</Badge>
+      <Badge variant="secondary">Aufnahme</Badge>
       <span className="min-w-11 text-right font-mono text-muted-foreground text-xs">
         {props.recordingTime}
       </span>
@@ -23,7 +23,7 @@ export function RecordingDock(props: {
         size="sm"
         type="button"
       >
-        Stop
+        Stopp
       </Button>
     </div>
   )

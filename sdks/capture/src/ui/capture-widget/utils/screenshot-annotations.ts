@@ -5,9 +5,9 @@ export interface ScreenshotAnnotationPoint {
 
 export const screenshotAnnotationColorOptions = [
   { label: "Orange", value: "#F97316" },
-  { label: "Red", value: "#EF4444" },
-  { label: "Blue", value: "#3B82F6" },
-  { label: "Green", value: "#22C55E" },
+  { label: "Rot", value: "#EF4444" },
+  { label: "Blau", value: "#3B82F6" },
+  { label: "Grün", value: "#22C55E" },
 ] as const
 
 export type ScreenshotAnnotationColor =

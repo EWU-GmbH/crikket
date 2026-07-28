@@ -138,7 +138,7 @@ export function useCaptureUiHandlers(
       onSubmitFeatureRequest: () => {
         const draft = input.store.getSnapshot().featureRequestDraft
         if (!draft.title.trim()) {
-          input.store.showError("Title is required.")
+          input.store.showError("Bitte geben Sie einen Titel ein.")
           return Promise.resolve()
         }
 
@@ -176,7 +176,7 @@ export function useCaptureUiHandlers(
           .writeText(input.shareUrl)
           .then(() => {
             input.store.patchState({
-              copyLabel: "Copied",
+              copyLabel: "Kopiert",
             })
 
             if (copyResetTimeoutRef.current !== null) {
@@ -185,7 +185,7 @@ export function useCaptureUiHandlers(
 
             copyResetTimeoutRef.current = window.setTimeout(() => {
               input.store.patchState({
-                copyLabel: "Copy Link",
+                copyLabel: "Link kopieren",
               })
             }, COPY_RESET_DELAY_MS)
           })

@@ -9,7 +9,7 @@ export function ChooserSection(props: {
   return (
     <section className="grid gap-4 p-5">
       <p className="m-0 text-muted-foreground text-sm">
-        Choose how to capture the issue.
+        Wählen Sie, wie Sie das Problem erfassen möchten.
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Button
@@ -18,7 +18,7 @@ export function ChooserSection(props: {
           onClick={props.onStartVideo}
           type="button"
         >
-          Record Video
+          Video aufnehmen
         </Button>
         <Button
           className="w-full"
@@ -27,7 +27,7 @@ export function ChooserSection(props: {
           type="button"
           variant="outline"
         >
-          Take Screenshot
+          Screenshot aufnehmen
         </Button>
       </div>
       <Button
@@ -37,7 +37,7 @@ export function ChooserSection(props: {
         type="button"
         variant="outline"
       >
-        Feature Request
+        Feature-Request
       </Button>
     </section>
   )

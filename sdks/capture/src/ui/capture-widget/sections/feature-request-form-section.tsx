@@ -17,17 +17,17 @@ export function FeatureRequestFormSection(props: {
   return (
     <section className="grid gap-4 p-5">
       <p className="m-0 text-muted-foreground text-sm">
-        Suggest a feature. This is sent directly to the team board — no bug
-        report is created.
+        Schlagen Sie ein Feature vor. Es wird direkt an das Team-Board gesendet
+        — es wird kein Fehlerbericht erstellt.
       </p>
       <Field>
-        <Label htmlFor="crikket-feature-title">Title</Label>
+        <Label htmlFor="crikket-feature-title">Titel</Label>
         <Input
           disabled={props.busy}
           id="crikket-feature-title"
           maxLength={200}
           onChange={(event) => props.onTitleChange(event.target.value)}
-          placeholder="What should we add?"
+          placeholder="Was sollen wir hinzufügen?"
           value={props.title}
         />
       </Field>
@@ -38,7 +38,7 @@ export function FeatureRequestFormSection(props: {
           id="crikket-feature-description"
           maxLength={4000}
           onChange={(event) => props.onDescriptionChange(event.target.value)}
-          placeholder="Optional context…"
+          placeholder="Optionaler Kontext…"
           rows={4}
           value={props.description}
         />
@@ -53,14 +53,14 @@ export function FeatureRequestFormSection(props: {
           type="button"
           variant="outline"
         >
-          Back
+          Zurück
         </Button>
         <Button
           disabled={props.busy || props.title.trim().length === 0}
           onClick={props.onSubmit}
           type="button"
         >
-          {props.busy ? "Sending…" : "Send to board"}
+          {props.busy ? "Wird gesendet…" : "An Board senden"}
         </Button>
       </div>
     </section>

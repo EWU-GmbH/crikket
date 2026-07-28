@@ -80,6 +80,7 @@
         "@crikket/bug-reports": "workspace:*",
         "@crikket/db": "workspace:*",
         "@crikket/env": "workspace:*",
+        "@crikket/kan": "workspace:*",
         "@orpc/openapi": "catalog:",
         "@orpc/server": "catalog:",
         "@orpc/zod": "catalog:",
@@ -218,6 +219,7 @@
         "@crikket/billing": "workspace:*",
         "@crikket/db": "workspace:*",
         "@crikket/env": "workspace:*",
+        "@crikket/kan": "workspace:*",
         "@crikket/shared": "workspace:*",
         "@orpc/server": "catalog:",
         "@orpc/zod": "catalog:",
@@ -268,6 +270,18 @@
         "@t3-oss/env-nextjs": "^0.13.1",
         "dotenv": "catalog:",
         "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@crikket/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/kan": {
+      "name": "@crikket/kan",
+      "version": "0.0.0",
+      "dependencies": {
+        "@crikket/env": "workspace:*",
       },
       "devDependencies": {
         "@crikket/config": "workspace:*",
@@ -357,7 +371,7 @@
     },
     "sdks/capture": {
       "name": "@crikket-io/capture",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "@crikket/capture-core": "workspace:*",
         "@crikket/shared": "workspace:*",
@@ -703,6 +717,8 @@
     "@crikket/db": ["@crikket/db@workspace:packages/db"],
 
     "@crikket/env": ["@crikket/env@workspace:packages/env"],
+
+    "@crikket/kan": ["@crikket/kan@workspace:packages/kan"],
 
     "@crikket/mcp": ["@crikket/mcp@workspace:packages/mcp"],
 

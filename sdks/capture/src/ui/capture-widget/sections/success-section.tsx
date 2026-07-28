@@ -8,7 +8,7 @@ export function SuccessSection(props: {
   state: CaptureUiState
   handlers: CaptureUiHandlers
 }): React.JSX.Element {
-  const hasCopied = props.state.copyLabel === "Copied"
+  const hasCopied = props.state.copyLabel === "Kopiert"
   const isFeatureRequest = props.state.shareUrl.trim().length === 0
 
   if (isFeatureRequest) {
@@ -16,10 +16,10 @@ export function SuccessSection(props: {
       <section className="grid gap-5 p-5">
         <div className="grid gap-1 text-center">
           <strong className="text-green-700 text-xl">
-            Feature request sent
+            Feature-Request gesendet
           </strong>
           <p className="m-0 text-muted-foreground text-sm">
-            Thanks — your idea was sent to the team board.
+            Danke — Ihre Idee wurde an das Team-Board gesendet.
           </p>
         </div>
         <Button
@@ -28,7 +28,7 @@ export function SuccessSection(props: {
           onClick={props.handlers.onRetry}
           type="button"
         >
-          Done
+          Fertig
         </Button>
       </section>
     )
@@ -37,14 +37,16 @@ export function SuccessSection(props: {
   return (
     <section className="grid gap-5 p-5">
       <div className="grid gap-1 text-center">
-        <strong className="text-green-700 text-xl">Bug report submitted</strong>
+        <strong className="text-green-700 text-xl">
+          Fehlerbericht gesendet
+        </strong>
         <p className="m-0 text-muted-foreground text-sm">
-          Your bug report has been created successfully.
+          Ihr Fehlerbericht wurde erfolgreich erstellt.
         </p>
       </div>
 
       <div className="grid gap-2">
-        <Label>Share URL</Label>
+        <Label>Freigabe-Link</Label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             className="flex-1"
@@ -53,7 +55,7 @@ export function SuccessSection(props: {
             value={props.state.shareUrl}
           />
           <Button
-            aria-label={hasCopied ? "Copied" : "Copy link"}
+            aria-label={hasCopied ? "Kopiert" : "Link kopieren"}
             className="shrink-0"
             disabled={props.state.busy}
             onClick={props.handlers.onCopyLink}
@@ -79,7 +81,7 @@ export function SuccessSection(props: {
           variant="outline"
         >
           <ExternalLinkIcon className="h-4 w-4" />
-          Open Link
+          Link öffnen
         </Button>
         <Button
           className="w-full gap-2"
@@ -87,7 +89,7 @@ export function SuccessSection(props: {
           onClick={props.handlers.onRetry}
           type="button"
         >
-          Capture Another
+          Weiteren erfassen
         </Button>
       </div>
     </section>

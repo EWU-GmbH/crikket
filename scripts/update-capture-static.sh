@@ -27,7 +27,8 @@ trap cleanup EXIT
 docker cp "${cid}:${BUNDLE_PATH}" "${tmpdir}/crikket-capture.js"
 
 # Sanity check: refuse to install a bundle without the attachment feature.
-for s in "Additional attachments" "Attach file"; do
+# Strings are German — the widget UI is translated (EWU customization).
+for s in "Zusätzliche Anhänge" "Datei anhängen"; do
   if ! grep -q "${s}" "${tmpdir}/crikket-capture.js"; then
     echo "ERROR: bundle in ${IMAGE} is missing '${s}' — refusing to install" >&2
     exit 1

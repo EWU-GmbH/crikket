@@ -2,20 +2,20 @@ import type { CaptureUiState } from "../../types"
 
 export function getViewDescription(view: CaptureUiState["view"]): string {
   if (view === "chooser") {
-    return "Choose how to capture"
+    return "Erfassungsart wählen"
   }
 
   if (view === "feature-request") {
-    return "Suggest a feature"
+    return "Feature vorschlagen"
   }
 
   if (view === "review") {
-    return "Review and submit"
+    return "Prüfen und absenden"
   }
 
   if (view === "success") {
-    return "Submission complete"
+    return "Meldung abgeschlossen"
   }
 
-  return "Capture issue details"
+  return "Problemdetails erfassen"
 }

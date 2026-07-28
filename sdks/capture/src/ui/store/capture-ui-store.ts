@@ -48,7 +48,7 @@ export function createCaptureUiStore(): CaptureUiStore {
       warnings: [...input.warnings],
       summary: input.summary,
       shareUrl: "",
-      copyLabel: "Copy Link",
+      copyLabel: "Link kopieren",
       reviewDraft: {
         title: "",
         description: "",
@@ -121,7 +121,7 @@ export function createCaptureUiStore(): CaptureUiStore {
         errorMessage: null,
         busy: false,
         shareUrl: shareUrl ?? "",
-        copyLabel: "Copy Link",
+        copyLabel: "Link kopieren",
       })
     },
     showError: (message) => {
@@ -160,7 +160,7 @@ function createInitialState(): CaptureUiState {
     summary: { ...DEFAULT_SUMMARY },
     media: null,
     shareUrl: "",
-    copyLabel: "Copy Link",
+    copyLabel: "Link kopieren",
     reviewDraft: {
       title: "",
       description: "",

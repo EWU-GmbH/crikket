@@ -70,8 +70,10 @@ export function CaptureWidgetView(props: {
 function ReviewSectionFallback(): React.JSX.Element {
   return (
     <section className="grid gap-2 px-5 py-8 text-muted-foreground text-sm">
-      <p>Preparing review form...</p>
-      <p className="text-xs">Your capture is ready. Loading report details.</p>
+      <p>Formular wird vorbereitet…</p>
+      <p className="text-xs">
+        Ihre Aufnahme ist bereit. Berichtsdetails werden geladen.
+      </p>
     </section>
   )
 }

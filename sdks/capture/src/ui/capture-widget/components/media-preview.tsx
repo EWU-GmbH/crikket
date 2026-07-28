@@ -13,7 +13,7 @@ export function MediaPreview(props: {
         preload="metadata"
         src={props.media.objectUrl}
       >
-        <track kind="captions" label="English" src="data:text/vtt,WEBVTT" />
+        <track kind="captions" label="Deutsch" src="data:text/vtt,WEBVTT" />
       </video>
     )
   }
@@ -21,7 +21,7 @@ export function MediaPreview(props: {
   if (props.media?.captureType === "screenshot") {
     return (
       <img
-        alt="Captured screenshot"
+        alt="Aufgenommener Screenshot"
         className="block h-full max-h-full w-full object-contain"
         src={props.media.objectUrl}
       />
