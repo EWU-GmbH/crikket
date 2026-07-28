@@ -21,6 +21,7 @@
 - Compose-Datei: `/data/coolify/services/***REMOVED***/docker-compose.yml` (+ `.env` dort)
 - Services im Stack: `postgres`, `migrate`, `server`, `web`, `caddy`
 - **Images werden lokal auf dem Droplet gebaut** (`pull_policy: never`), Tag-Schema: `ewu-crikket-{server,web}:master-<shortsha>`
+- **`/crikket-capture.js` wird NICHT aus dem Image ausgeliefert:** Caddy serviert die Datei statisch aus dem Host-Verzeichnis `/data/coolify/services/***REMOVED***/static/` (bind mount). Sie muss nach jedem Web-Image-Build manuell aktualisiert werden — siehe Deployment-Flow Schritt 2.
 
 ### Deployment-Flow (manuell per SSH)
 
@@ -32,11 +33,14 @@ ssh root@***REMOVED*** 'cd /root/crikket-build && \
   docker build -f apps/server/Dockerfile -t ewu-crikket-server:master-<sha> . && \
   docker build -f apps/web/Dockerfile -t ewu-crikket-web:master-<sha> .'
 
-# 2. Tags in der Compose-Datei anpassen
+# 2. Statisches Widget-Script aktualisieren (sonst bleibt /crikket-capture.js veraltet!)
+ssh root@***REMOVED*** 'sh /root/crikket-build/scripts/update-capture-static.sh master-<sha>'
+
+# 3. Tags in der Compose-Datei anpassen
 ssh root@***REMOVED*** 'sed -i "s/master-<alt>/master-<sha>/g" \
   /data/coolify/services/***REMOVED***/docker-compose.yml'
 
-# 3. Stack neu starten (migrate-Service führt DB-Migrationen automatisch aus)
+# 4. Stack neu starten (migrate-Service führt DB-Migrationen automatisch aus)
 ssh root@***REMOVED*** 'cd /data/coolify/services/***REMOVED*** && \
   docker compose -p ***REMOVED*** up -d'
 ```
