@@ -18,7 +18,7 @@ DEFAULT_WORKSPACES="***REMOVED*** ***REMOVED***"
 WORKSPACES="${*:-$DEFAULT_WORKSPACES}"
 
 read_env() {
-  grep "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '\r'"'\""
+  { grep "^$1=" "$ENV_FILE" || true; } | tail -n1 | cut -d= -f2- | tr -d '\r'"'\""
 }
 
 KAN_BASE_URL="$(read_env KAN_BASE_URL)"
