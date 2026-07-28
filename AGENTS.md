@@ -44,6 +44,14 @@ ssh root@***REMOVED*** 'sed -i "s/master-<alt>/master-<sha>/g" \
 # 4. Stack neu starten (migrate-Service führt DB-Migrationen automatisch aus)
 ssh root@***REMOVED*** 'cd /data/coolify/services/***REMOVED*** && \
   docker compose -p ***REMOVED*** up -d'
+
+# 5. (Optional, nach Verifizierung) Alte Image-Tags aufräumen:
+#    behält pro Repo die deployed Tags + den neuesten Alt-Tag (Rollback),
+#    löscht den Rest + dangling Images. Ältere Stände sind per
+#    `git archive <sha>` jederzeit neu baubar.
+#    Läuft zusätzlich automatisch per Root-Cron (So 03:00) auf dem Droplet,
+#    Log: /var/log/crikket-image-prune.log
+ssh root@***REMOVED*** 'bash /root/scripts/prune-old-images.sh'
 ```
 
 ### DB-Migrationen
