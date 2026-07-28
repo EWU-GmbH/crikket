@@ -6,6 +6,10 @@ import type {
   CaptureUiHandlers,
   CaptureUiStore,
 } from "../../types"
+import {
+  isValidReporterEmail,
+  storeReporterEmail,
+} from "../../utils/reporter-email"
 
 const COPY_RESET_DELAY_MS = 1500
 
@@ -110,6 +114,16 @@ export function useCaptureUiHandlers(
           errorMessage: null,
         })
       },
+      onFeatureRequestEmailChange: (value) => {
+        const current = input.store.getSnapshot().featureRequestDraft
+        input.store.patchState({
+          featureRequestDraft: {
+            ...current,
+            email: value.slice(0, 320),
+          },
+          errorMessage: null,
+        })
+      },
       onStopRecording: () => {
         startBusyTask(async () => {
           try {
@@ -128,6 +142,11 @@ export function useCaptureUiHandlers(
 
         return input.callbacks
           .onSubmit(draft, options)
+          .then(() => {
+            if (draft.reporterEmail) {
+              storeReporterEmail(draft.reporterEmail)
+            }
+          })
           .catch((error) => {
             input.store.showError(toUserError(error))
           })
@@ -142,6 +161,14 @@ export function useCaptureUiHandlers(
           return Promise.resolve()
         }
 
+        const email = draft.email.trim()
+        if (email.length > 0 && !isValidReporterEmail(email)) {
+          input.store.showError(
+            "Bitte geben Sie eine gültige E-Mail-Adresse ein."
+          )
+          return Promise.resolve()
+        }
+
         setIsSubmitPending(true)
         input.store.patchState({
           errorMessage: null,
@@ -150,6 +177,7 @@ export function useCaptureUiHandlers(
         return input.callbacks
           .onSubmitFeatureRequest(draft)
           .then(() => {
+            storeReporterEmail(email)
             input.store.showSuccess("")
           })
           .catch((error) => {

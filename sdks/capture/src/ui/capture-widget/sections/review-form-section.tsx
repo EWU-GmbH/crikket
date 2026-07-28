@@ -288,6 +288,32 @@ export function ReviewFormSection({
               ) : null}
             </Field>
 
+            <Field data-invalid={Boolean(form.visibleErrors.reporterEmail)}>
+              <Label htmlFor={`${formKey}-reporter-email`}>
+                E-Mail (optional)
+              </Label>
+              <Input
+                aria-invalid={Boolean(form.visibleErrors.reporterEmail)}
+                id={`${formKey}-reporter-email`}
+                maxLength={320}
+                onBlur={() => {
+                  form.touchField("reporterEmail")
+                }}
+                onChange={(event) => {
+                  form.setFieldValue("reporterEmail", event.currentTarget.value)
+                }}
+                placeholder="name@example.com"
+                type="email"
+                value={form.draft.reporterEmail ?? ""}
+              />
+              <p className="m-0 text-muted-foreground text-xs">
+                Wir informieren Sie, sobald Ihr Bericht erledigt ist.
+              </p>
+              {form.visibleErrors.reporterEmail ? (
+                <FieldError errors={[form.visibleErrors.reporterEmail]} />
+              ) : null}
+            </Field>
+
             <Field data-invalid={Boolean(form.visibleErrors.priority)}>
               <Label htmlFor={`${formKey}-priority`}>Priorität</Label>
               <select

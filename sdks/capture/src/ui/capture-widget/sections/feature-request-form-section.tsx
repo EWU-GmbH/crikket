@@ -7,9 +7,11 @@ import { Textarea } from "../components/primitives/textarea"
 export function FeatureRequestFormSection(props: {
   busy: boolean
   description: string
+  email: string
   errorMessage: string | null
   onBack: () => void
   onDescriptionChange: (value: string) => void
+  onEmailChange: (value: string) => void
   onSubmit: () => void
   onTitleChange: (value: string) => void
   title: string
@@ -42,6 +44,21 @@ export function FeatureRequestFormSection(props: {
           rows={4}
           value={props.description}
         />
+      </Field>
+      <Field>
+        <Label htmlFor="crikket-feature-email">E-Mail (optional)</Label>
+        <Input
+          disabled={props.busy}
+          id="crikket-feature-email"
+          maxLength={320}
+          onChange={(event) => props.onEmailChange(event.target.value)}
+          placeholder="name@example.com"
+          type="email"
+          value={props.email}
+        />
+        <p className="m-0 text-muted-foreground text-xs">
+          Wir informieren Sie, sobald Ihr Vorschlag umgesetzt ist.
+        </p>
       </Field>
       {props.errorMessage ? (
         <p className="m-0 text-destructive text-sm">{props.errorMessage}</p>

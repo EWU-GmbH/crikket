@@ -34,9 +34,11 @@ export function CaptureWidgetView(props: {
       <FeatureRequestFormSection
         busy={props.isSubmitPending || props.isBusy}
         description={props.state.featureRequestDraft.description}
+        email={props.state.featureRequestDraft.email}
         errorMessage={props.state.errorMessage}
         onBack={props.handlers.onCancel}
         onDescriptionChange={props.handlers.onFeatureRequestDescriptionChange}
+        onEmailChange={props.handlers.onFeatureRequestEmailChange}
         onSubmit={() => {
           props.handlers.onSubmitFeatureRequest()
         }}

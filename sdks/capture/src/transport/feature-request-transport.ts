@@ -6,9 +6,11 @@ export async function submitFeatureRequest(input: {
   draft: {
     title: string
     description: string
+    email?: string
   }
 }): Promise<{ cardPublicId?: string }> {
   const host = input.config.host.replace(TRAILING_SLASHES_REGEX, "")
+  const reporterEmail = input.draft.email?.trim() ?? ""
   const response = await fetch(`${host}/api/embed/feature-requests`, {
     method: "POST",
     headers: {
@@ -18,6 +20,7 @@ export async function submitFeatureRequest(input: {
     body: JSON.stringify({
       title: input.draft.title,
       description: input.draft.description,
+      reporterEmail: reporterEmail.length > 0 ? reporterEmail : undefined,
       pageUrl:
         typeof window !== "undefined"
           ? window.location.href.slice(0, 2000)

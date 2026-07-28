@@ -24,6 +24,9 @@ export const bugReport = pgTable(
     description: text("description"),
     status: text("status").default("open").notNull(), // open, in_progress, resolved, closed
     priority: text("priority").default("none").notNull(), // none, low, medium, high, critical
+    reporterEmail: text("reporter_email"),
+    kanCardPublicId: text("kan_card_public_id"),
+    resolutionNotifiedAt: timestamp("resolution_notified_at"),
     tags: text("tags").array(),
     url: text("url"),
     attachmentType: text("attachment_type"), // "video" or "screenshot"
@@ -59,6 +62,7 @@ export const bugReport = pgTable(
     index("bug_report_debuggerIngestionStatus_idx").on(
       table.debuggerIngestionStatus
     ),
+    index("bug_report_kanCardPublicId_idx").on(table.kanCardPublicId),
   ]
 )
 
@@ -75,6 +79,7 @@ export const bugReportUploadSession = pgTable(
     title: text("title"),
     description: text("description"),
     priority: text("priority").default("none").notNull(),
+    reporterEmail: text("reporter_email"),
     tags: text("tags").array(),
     url: text("url"),
     attachmentType: text("attachment_type").notNull(),

@@ -62,7 +62,16 @@ export const env = createEnv({
     KAN_API_KEY: z.string().min(1).optional(),
     KAN_BUGS_LIST_PUBLIC_ID: z.string().min(12).max(12).optional(),
     KAN_FEATURE_REQUESTS_LIST_PUBLIC_ID: z.string().min(12).max(12).optional(),
-    // Per-org routing: {"<organizationId>":{"bugs":"<listPublicId>","featureRequests":"<listPublicId>"}}
+    // "Done" target lists for the resolution sync (Crikket status → Kan card move)
+    KAN_BUGS_DONE_LIST_PUBLIC_ID: z.string().min(12).max(12).optional(),
+    KAN_FEATURE_REQUESTS_DONE_LIST_PUBLIC_ID: z
+      .string()
+      .min(12)
+      .max(12)
+      .optional(),
+    // Shared secret for verifying Kan → Crikket webhook signatures (HMAC-SHA256)
+    KAN_WEBHOOK_SECRET: z.string().min(1).optional(),
+    // Per-org routing: {"<organizationId>":{"bugs":"<listPublicId>","featureRequests":"<listPublicId>","bugsDone":"<listPublicId>","featureRequestsDone":"<listPublicId>"}}
     KAN_ORG_LISTS_JSON: z.string().min(2).optional(),
     NODE_ENV: z
       .enum(["development", "production", "staging"])

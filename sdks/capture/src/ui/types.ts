@@ -31,6 +31,7 @@ export interface CaptureUiState {
   featureRequestDraft: {
     title: string
     description: string
+    email: string
   }
 }
 
@@ -42,6 +43,7 @@ export interface CaptureUiHandlers {
   onOpenFeatureRequest: () => void
   onFeatureRequestTitleChange: (value: string) => void
   onFeatureRequestDescriptionChange: (value: string) => void
+  onFeatureRequestEmailChange: (value: string) => void
   onStopRecording: () => void
   onSubmit: (
     draft: CaptureSubmissionDraft,
@@ -67,6 +69,7 @@ export interface CaptureUiCallbacks {
   onSubmitFeatureRequest: (draft: {
     title: string
     description: string
+    email: string
   }) => Promise<{ cardPublicId?: string }>
   onReset: () => void
   onCropScreenshot: (blob: Blob) => void

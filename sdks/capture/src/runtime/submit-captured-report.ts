@@ -21,6 +21,8 @@ export function submitCapturedReport(input: {
 }): Promise<CaptureSubmitResult> {
   const submitTransport = input.submitTransport ?? defaultSubmitTransport
 
+  const reporterEmail = input.draft.reporterEmail?.trim() ?? ""
+
   return submitTransport({
     config: input.config,
     report: {
@@ -29,6 +31,7 @@ export function submitCapturedReport(input: {
       description: input.draft.description.trim(),
       priority: input.draft.priority,
       visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
+      reporterEmail: reporterEmail.length > 0 ? reporterEmail : undefined,
       pageUrl: getPageUrl(),
       pageTitle: getPageTitle(),
       durationMs: input.media.durationMs,

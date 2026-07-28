@@ -154,6 +154,7 @@ function buildUploadSessionRequest(request: CaptureSubmitRequest): {
     submittedVia: string
   }
   priority: CaptureSubmitRequest["report"]["priority"]
+  reporterEmail?: string
   title: string
   url: string
   visibility: CaptureSubmitRequest["report"]["visibility"]
@@ -179,6 +180,7 @@ function buildUploadSessionRequest(request: CaptureSubmitRequest): {
     title: request.report.title,
     description: request.report.description,
     priority: request.report.priority,
+    reporterEmail: request.report.reporterEmail,
     visibility: request.report.visibility,
     attachmentType: request.report.captureType,
     url: request.report.pageUrl,

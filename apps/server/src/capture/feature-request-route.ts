@@ -1,8 +1,11 @@
+import { db } from "@crikket/db"
+import { featureRequest } from "@crikket/db/schema/feature-request"
 import {
   createKanCard,
   getKanListPublicIdForOrganization,
 } from "@crikket/kan/client"
 import { ORPCError } from "@orpc/server"
+import { nanoid } from "nanoid"
 import { z } from "zod"
 import {
   authorizeCaptureSubmitRequest,
@@ -13,13 +16,14 @@ import {
 const featureRequestInputSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(4000).optional().default(""),
+  reporterEmail: z.email().trim().max(320).optional(),
   pageUrl: z.string().trim().max(2000).optional(),
   pageTitle: z.string().trim().max(500).optional(),
 })
 
 /**
- * Widget feature wishes → Kan "Feature Requests" directly.
- * Does NOT create a Crikket bug report.
+ * Widget feature wishes → Kan "Feature Requests" list + `feature_request` row
+ * (needed for resolution notifications). Does NOT create a Crikket bug report.
  */
 export async function handleFeatureRequest(input: {
   request: Request
@@ -73,6 +77,24 @@ export async function handleFeatureRequest(input: {
         message: "Unable to create Kan card for feature request.",
       })
     }
+
+    // Persist for resolution notifications; never blocks the widget response.
+    db.insert(featureRequest)
+      .values({
+        id: nanoid(12),
+        organizationId: authorization.organizationId,
+        reporterEmail: body.reporterEmail ?? null,
+        title: body.title,
+        description: body.description || null,
+        status: "open",
+        kanCardPublicId: card.publicId,
+      })
+      .catch((error: unknown) => {
+        console.error(
+          `[feature-request] failed to persist feature request for card ${card.publicId}`,
+          error
+        )
+      })
 
     return buildJsonResponse(
       {

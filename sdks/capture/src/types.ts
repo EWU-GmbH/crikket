@@ -103,6 +103,7 @@ export interface CaptureSubmissionDraft {
   description: string
   priority: CapturePriority
   visibility?: CaptureReportVisibility
+  reporterEmail?: string
 }
 
 export interface CaptureSubmitRequest {
@@ -113,6 +114,7 @@ export interface CaptureSubmitRequest {
     description: string
     priority: CapturePriority
     visibility: CaptureReportVisibility
+    reporterEmail?: string
     pageUrl: string
     pageTitle: string
     durationMs: number | null

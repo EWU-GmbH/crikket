@@ -21,6 +21,7 @@ import { handleFeatureRequest } from "./capture/feature-request-route"
 import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
+import { handleKanWebhook } from "./webhooks/kan-route"
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
@@ -147,6 +148,11 @@ app.post("/api/embed/bug-report-finalize", (c) => {
 })
 app.post("/api/embed/feature-requests", (c) => {
   return handleFeatureRequest({
+    request: c.req.raw,
+  })
+})
+app.post("/api/webhooks/kan", (c) => {
+  return handleKanWebhook({
     request: c.req.raw,
   })
 })

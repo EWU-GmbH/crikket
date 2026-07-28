@@ -96,6 +96,7 @@ export const createBugReportUploadSessionInputSchema = z.object({
   title: optionalText(200),
   description: optionalText(3000),
   priority: z.enum(priorityValues).default(PRIORITY_OPTIONS.none),
+  reporterEmail: z.email().trim().max(320).optional(),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   url: z.string().url().optional(),
   attachmentType: z.enum(["video", "screenshot"]),
@@ -304,6 +305,7 @@ export async function createBugReportUploadSession(input: {
       title: inferredTitle,
       description: input.input.description,
       priority: input.input.priority,
+      reporterEmail: input.input.reporterEmail ?? null,
       tags: input.tags,
       url: input.input.url,
       attachmentType: input.input.attachmentType,
@@ -648,6 +650,7 @@ async function persistFinalizedBugReport(input: {
       title: uploadSession.title,
       description: uploadSession.description,
       priority: uploadSession.priority,
+      reporterEmail: uploadSession.reporterEmail,
       tags: uploadSession.tags,
       url: uploadSession.url,
       attachmentType: uploadSession.attachmentType,
@@ -736,8 +739,9 @@ async function syncBugReportToKan(input: {
   sharePath: string
 }): Promise<void> {
   try {
-    const { createKanCardInBackground, getKanListPublicIdForOrganization } =
-      await import("@crikket/kan/client")
+    const { createKanCard, getKanListPublicIdForOrganization } = await import(
+      "@crikket/kan/client"
+    )
     const listPublicId = getKanListPublicIdForOrganization({
       kind: "bugs",
       organizationId: input.organizationId,
@@ -756,14 +760,24 @@ async function syncBugReportToKan(input: {
       .filter((line) => line.length > 0)
       .join("\n\n")
 
-    createKanCardInBackground(
-      {
-        title: input.title || `Crikket bug ${input.id}`,
-        description: details,
-        listPublicId,
-      },
-      `bug-report ${input.id}`
-    )
+    const card = await createKanCard({
+      title: input.title || `Crikket bug ${input.id}`,
+      description: details,
+      listPublicId,
+    })
+
+    if (card?.publicId) {
+      await db
+        .update(bugReport)
+        .set({ kanCardPublicId: card.publicId })
+        .where(eq(bugReport.id, input.id))
+        .catch((error: unknown) => {
+          console.error(
+            `[kan] failed to persist card id for bug-report ${input.id}`,
+            error
+          )
+        })
+    }
   } catch (error) {
     console.error("[kan] failed to queue bug-report sync", error)
   }

@@ -7,6 +7,7 @@ import {
 import { ORPCError } from "@orpc/server"
 import { and, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
+import { handleBugReportStatusTransition } from "../lib/status-side-effects"
 import {
   isStatus,
   isVisibility,
@@ -114,6 +115,19 @@ export const updateBugReport = protectedProcedure
     const activeOrgId = requireBugReportsWriteAccess(context)
     const values = buildUpdateValues(input)
 
+    const previousStatus =
+      input.status === undefined
+        ? undefined
+        : (
+            await db.query.bugReport.findFirst({
+              where: and(
+                eq(bugReport.id, input.id),
+                eq(bugReport.organizationId, activeOrgId)
+              ),
+              columns: { status: true },
+            })
+          )?.status
+
     const updated = await db
       .update(bugReport)
       .set(values)
@@ -137,6 +151,19 @@ export const updateBugReport = protectedProcedure
       throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
     }
 
+    if (
+      input.status !== undefined &&
+      previousStatus !== undefined &&
+      previousStatus !== report.status
+    ) {
+      handleBugReportStatusTransition({
+        id: report.id,
+        organizationId: activeOrgId,
+        previousStatus,
+        newStatus: report.status,
+      })
+    }
+
     return {
       id: report.id,
       title: report.title,
@@ -158,6 +185,20 @@ export const updateBugReportsBulk = protectedProcedure
     const values = buildUpdateValues(input)
     const uniqueIds = Array.from(new Set(input.ids))
 
+    const previousStatusById = new Map<string, string>()
+    if (input.status !== undefined) {
+      const existing = await db.query.bugReport.findMany({
+        where: and(
+          eq(bugReport.organizationId, activeOrgId),
+          inArray(bugReport.id, uniqueIds)
+        ),
+        columns: { id: true, status: true },
+      })
+      for (const row of existing) {
+        previousStatusById.set(row.id, row.status)
+      }
+    }
+
     const updated = await db
       .update(bugReport)
       .set(values)
@@ -168,6 +209,20 @@ export const updateBugReportsBulk = protectedProcedure
         )
       )
       .returning({ id: bugReport.id })
+
+    if (input.status !== undefined) {
+      for (const row of updated) {
+        const previousStatus = previousStatusById.get(row.id)
+        if (previousStatus && previousStatus !== input.status) {
+          handleBugReportStatusTransition({
+            id: row.id,
+            organizationId: activeOrgId,
+            previousStatus,
+            newStatus: input.status,
+          })
+        }
+      }
+    }
 
     return {
       updatedCount: updated.length,

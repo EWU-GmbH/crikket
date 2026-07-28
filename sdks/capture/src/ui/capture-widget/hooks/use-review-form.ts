@@ -12,6 +12,7 @@ type ReviewDraftTouched = Record<ReviewDraftField, boolean>
 const INITIAL_TOUCHED_STATE: ReviewDraftTouched = {
   description: false,
   priority: false,
+  reporterEmail: false,
   title: false,
   visibility: false,
 }
@@ -78,6 +79,7 @@ export function useReviewForm(input: {
     setTouched({
       description: true,
       priority: true,
+      reporterEmail: true,
       title: true,
       visibility: true,
     })

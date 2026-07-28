@@ -7,6 +7,7 @@ import {
   type Priority,
 } from "@crikket/shared/constants/priorities"
 import type { CaptureSubmissionDraft } from "../../../types"
+import { isValidReporterEmail } from "../../utils/reporter-email"
 
 const priorityValues = new Set<string>(Object.values(PRIORITY_OPTIONS))
 const visibilityValues = new Set<string>(
@@ -49,12 +50,19 @@ export function validateReviewDraft(
     errors.visibility = "Wählen Sie eine gültige Sichtbarkeit."
   }
 
+  const reporterEmail = value.reporterEmail?.trim() ?? ""
+  if (reporterEmail.length > 0 && !isValidReporterEmail(reporterEmail)) {
+    errors.reporterEmail = "Geben Sie eine gültige E-Mail-Adresse ein."
+  }
+
   return Object.keys(errors).length > 0 ? errors : undefined
 }
 
 export function trimReviewDraftForSubmission(
   draft: CaptureSubmissionDraft
 ): CaptureSubmissionDraft {
+  const reporterEmail = draft.reporterEmail?.trim() ?? ""
+
   return {
     description: draft.description.trim(),
     priority: draft.priority,
@@ -62,6 +70,7 @@ export function trimReviewDraftForSubmission(
     visibility: visibilityValues.has(draft.visibility ?? "")
       ? (draft.visibility as BugReportVisibility)
       : BUG_REPORT_VISIBILITY_OPTIONS.private,
+    reporterEmail: reporterEmail.length > 0 ? reporterEmail : undefined,
   }
 }
 

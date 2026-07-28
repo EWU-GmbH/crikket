@@ -25,6 +25,8 @@
     "@upstash/redis": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "nanoid": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
   },
