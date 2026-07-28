@@ -33,6 +33,65 @@ export type ScreenshotAnnotation =
   | ScreenshotStrokeAnnotation
   | ScreenshotRectangleAnnotation
 
+/** Normalized (0–1) crop rectangle relative to the full screenshot. */
+export interface ScreenshotCropRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const MIN_CROP_EDGE_PX = 2
+
+export async function createCroppedScreenshotBlob(input: {
+  imageUrl: string
+  rect: ScreenshotCropRect
+}): Promise<Blob | null> {
+  const image = await loadImage(input.imageUrl)
+  const cropX = Math.round(clampUnit(input.rect.x) * image.naturalWidth)
+  const cropY = Math.round(clampUnit(input.rect.y) * image.naturalHeight)
+  const cropWidth = Math.round(clampUnit(input.rect.width) * image.naturalWidth)
+  const cropHeight = Math.round(
+    clampUnit(input.rect.height) * image.naturalHeight
+  )
+
+  if (cropWidth < MIN_CROP_EDGE_PX || cropHeight < MIN_CROP_EDGE_PX) {
+    return null
+  }
+
+  const canvas = document.createElement("canvas")
+  canvas.width = cropWidth
+  canvas.height = cropHeight
+
+  const context = canvas.getContext("2d")
+  if (!context) {
+    throw new Error("Failed to create screenshot crop canvas.")
+  }
+
+  context.drawImage(
+    image,
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    cropWidth,
+    cropHeight
+  )
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Failed to export cropped screenshot."))
+        return
+      }
+
+      resolve(blob)
+    }, "image/png")
+  })
+}
+
 export async function createAnnotatedScreenshotBlob(input: {
   annotations: ScreenshotAnnotation[]
   imageUrl: string

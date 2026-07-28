@@ -102,6 +102,9 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       onReset: () => {
         this.reset()
       },
+      onCropScreenshot: (blob) => {
+        this.replaceScreenshotMedia(blob)
+      },
     })
     this.mountedTarget = mountTarget
   }
@@ -281,6 +284,22 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
 
     URL.revokeObjectURL(this.currentMedia.objectUrl)
     this.currentMedia = null
+  }
+
+  private replaceScreenshotMedia(blob: Blob): void {
+    if (this.currentMedia?.captureType !== "screenshot") {
+      return
+    }
+
+    const media = this.setMedia({
+      blob,
+      captureType: "screenshot",
+      durationMs: null,
+    })
+    this.mountedUi?.store.patchState({
+      media,
+      reviewFormKey: media.objectUrl,
+    })
   }
 
   private finalizeCapturedMedia(input: {

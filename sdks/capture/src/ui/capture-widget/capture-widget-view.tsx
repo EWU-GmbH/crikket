@@ -53,6 +53,7 @@ export function CaptureWidgetView(props: {
           formKey={props.state.reviewFormKey}
           isSubmitting={props.isSubmitPending}
           onCancel={props.handlers.onCancel}
+          onCropScreenshot={props.handlers.onCropScreenshot}
           onSubmit={props.handlers.onSubmit}
           state={props.state}
         />

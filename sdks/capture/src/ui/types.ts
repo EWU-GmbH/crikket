@@ -52,6 +52,7 @@ export interface CaptureUiHandlers {
   onRetry: () => void
   onCopyLink: () => void
   onOpenLink: () => void
+  onCropScreenshot: (blob: Blob) => void
 }
 
 export interface CaptureUiCallbacks {
@@ -68,6 +69,7 @@ export interface CaptureUiCallbacks {
     description: string
   }) => Promise<{ cardPublicId?: string }>
   onReset: () => void
+  onCropScreenshot: (blob: Blob) => void
 }
 
 export interface CaptureUiStore {

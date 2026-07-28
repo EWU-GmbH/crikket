@@ -25,6 +25,7 @@ interface ReviewFormSectionProps {
   isSubmitting: boolean
   state: CaptureUiState
   onCancel: () => void
+  onCropScreenshot: (blob: Blob) => void
   onSubmit: (
     draft: CaptureSubmissionDraft,
     options?: CaptureReviewSubmitOptions
@@ -61,6 +62,7 @@ export function ReviewFormSection({
   isSubmitting,
   state,
   onCancel,
+  onCropScreenshot,
   onSubmit,
 }: ReviewFormSectionProps): React.JSX.Element {
   const [annotations, setAnnotations] = useState<ScreenshotAnnotation[]>([])
@@ -212,6 +214,7 @@ export function ReviewFormSection({
               annotations={annotations}
               disabled={state.busy || isSubmitting}
               onChange={setAnnotations}
+              onCrop={onCropScreenshot}
               src={state.media.objectUrl}
             />
           ) : (

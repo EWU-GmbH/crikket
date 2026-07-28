@@ -159,6 +159,9 @@ export function useCaptureUiHandlers(
             setIsSubmitPending(false)
           })
       },
+      onCropScreenshot: (blob) => {
+        input.callbacks.onCropScreenshot(blob)
+      },
       onCancel: () => {
         input.callbacks.onReset()
         input.store.openChooser()

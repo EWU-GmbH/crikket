@@ -40,7 +40,7 @@ export function CaptureWidgetShell(props: {
           <Card
             className={
               isReviewView
-                ? "m-auto flex h-[min(820px,calc(100dvh-2rem))] w-full max-w-[1120px] flex-col overflow-hidden border-border/80 bg-card text-card-foreground shadow-2xl"
+                ? "m-auto flex h-[90vh] w-[95vw] max-w-[1600px] flex-col overflow-hidden border-border/80 bg-card text-card-foreground shadow-2xl"
                 : "m-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-[560px] flex-col overflow-hidden border-border/80 bg-card text-card-foreground shadow-2xl"
             }
             role="dialog"
