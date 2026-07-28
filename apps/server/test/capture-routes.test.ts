@@ -102,6 +102,16 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
       })
       .optional(),
     deviceInfo: z.unknown().optional(),
+    extraAttachments: z
+      .array(
+        z.object({
+          clientId: z.string(),
+          contentType: z.string(),
+          filename: z.string().optional(),
+          kind: z.enum(["screenshot", "file"]),
+        })
+      )
+      .optional(),
     hasDebuggerPayload: z.boolean().optional(),
     metadata: z.unknown().optional(),
     priority: z.string().optional(),
@@ -116,7 +126,16 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
     debuggerContentEncoding: z.string().optional(),
     debuggerSizeBytes: z.number().int().nonnegative().optional(),
   }),
-  createBugReportUploadSession: async () => ({
+  createBugReportUploadSession: async (input: {
+    input: {
+      extraAttachments?: Array<{
+        clientId: string
+        contentType: string
+        filename?: string
+        kind: "screenshot" | "file"
+      }>
+    }
+  }) => ({
     bugReportId: "br_123",
     captureUpload: {
       headers: {
@@ -134,7 +153,21 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
       method: "PUT" as const,
       url: "https://storage.example.com/debugger-upload",
     },
-    extraAttachmentUploads: [],
+    extraAttachmentUploads: (input.input.extraAttachments ?? []).map(
+      (attachment, index) => ({
+        clientId: attachment.clientId,
+        id: `att_${index}`,
+        kind: attachment.kind,
+        upload: {
+          headers: {
+            "content-type": attachment.contentType,
+          },
+          key: `organizations/org_123/bug-reports/br_123/attachments/files/att_${index}/${attachment.filename ?? "file"}`,
+          method: "PUT" as const,
+          url: `https://storage.example.com/extra-upload-${index}`,
+        },
+      })
+    ),
   }),
   finalizeBugReportUpload: async () => ({
     debugger: {
@@ -432,6 +465,53 @@ describe("capture upload session route", () => {
     })
   })
 
+  it("returns upload targets for extra attachments keyed by clientId", async () => {
+    const { createCaptureSubmitToken } = await import(
+      CAPTURE_SUBMIT_PROTECTION_PATH
+    )
+    const authorization = createCaptureSubmitToken({
+      keyId: publicKeyRecord.id,
+      origin: validOrigin,
+    })
+    expect(authorization).not.toBeNull()
+
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+    const response = await handleCaptureUploadSession({
+      request: createUploadSessionRequest({
+        body: {
+          extraAttachments: [
+            {
+              clientId: "cdb61755-9691-495d-b695-f97c4b12aa22",
+              contentType: "application/pdf",
+              filename: "logs.pdf",
+              kind: "file",
+            },
+          ],
+        },
+        headers: {
+          "x-crikket-capture-token": authorization!.token,
+        },
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      bugReportId: "br_123",
+      extraAttachmentUploads: [
+        {
+          clientId: "cdb61755-9691-495d-b695-f97c4b12aa22",
+          id: "att_0",
+          upload: {
+            method: "PUT",
+            url: "https://storage.example.com/extra-upload-0",
+          },
+        },
+      ],
+    })
+  })
+
   it("rejects the old value after key rotation and accepts the new one", async () => {
     const oldKey = activePublicKeyValue
     activePublicKeyValue = "crk_rotated"
@@ -537,6 +617,7 @@ describe("capture finalize route", () => {
 })
 
 function createUploadSessionRequest(input?: {
+  body?: Record<string, unknown>
   headers?: Record<string, string>
 }): Request {
   return new Request(
@@ -561,6 +642,7 @@ function createUploadSessionRequest(input?: {
         title: "Checkout is broken",
         url: "https://example.com/checkout",
         visibility: "private",
+        ...input?.body,
       }),
       headers: {
         "content-type": "application/json",
