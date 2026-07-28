@@ -1,3 +1,10 @@
+# All text files use LF — including on Windows checkouts (core.autocrlf=true).
+# Biome/Ultracite formats with lineEnding "lf"; without this rule every tool
+# run rewrote ~55 CRLF files repo-wide and collided with the pre-commit
+# stash/restore. Blobs were already stored as LF, so this only changes how
+# files are checked out, not what is committed.
+* text=auto eol=lf
+
 # Shell scripts must keep LF endings — they run on Linux (droplet deploys,
 # Docker entrypoints). git archive on Windows with core.autocrlf=true would
 # otherwise export them with CRLF and break shebang execution in containers.

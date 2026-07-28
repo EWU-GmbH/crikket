@@ -1,80 +1,10 @@
 #!/bin/sh
 
-# Exit on any error
-set -e
-
-# Build and test run in CI; pre-commit only runs format to keep commits fast
-
-# Check if there are any staged files
-if [ -z "$(git diff --cached --name-only)" ]; then
-  echo "No staged files to format"
-  exit 0
-fi
-
-# Store the hash of staged changes to detect modifications
-STAGED_HASH=$(git diff --cached | sha256sum | cut -d' ' -f1)
-
-# Save list of staged files (handling all file states)
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
-PARTIALLY_STAGED=$(git diff --name-only)
-
-# Stash unstaged changes to preserve working directory
-# --keep-index keeps staged changes in working tree
-STASHED=0
-if [ -n "$PARTIALLY_STAGED" ]; then
-  git stash push --quiet --keep-index --message "pre-commit-stash"
-  STASHED=1
-fi
-
-# Run formatter on the staged files
-set +e
-bun x ultracite fix
-FORMAT_EXIT_CODE=$?
-set -e
-
-# Restore working directory state
-if [ $STASHED -eq 1 ]; then
-  # Re-stage the formatted files
-  if [ -n "$STAGED_FILES" ]; then
-    echo "$STAGED_FILES" | while IFS= read -r file; do
-      if [ -f "$file" ]; then
-        git add "$file"
-      fi
-    done
-  fi
-
-  # Restore unstaged changes; abort commit if this fails (e.g. merge conflict)
-  if ! git stash pop --quiet; then
-    echo "❌ Failed to restore unstaged changes cleanly."
-    echo "Resolve conflicts, then retry the commit."
-    exit 1
-  fi
-
-  # Restore partial staging if files were partially staged
-  if [ -n "$PARTIALLY_STAGED" ]; then
-    for file in $PARTIALLY_STAGED; do
-      if [ -f "$file" ] && echo "$STAGED_FILES" | grep -q "^$file$"; then
-        # File was partially staged - need to unstage the unstaged parts
-        git restore --staged "$file" 2>/dev/null || true
-        git add -p "$file" < /dev/null 2>/dev/null || git add "$file"
-      fi
-    done
-  fi
-else
-  # No stash was created, just re-add the formatted files
-  if [ -n "$STAGED_FILES" ]; then
-    echo "$STAGED_FILES" | while IFS= read -r file; do
-      if [ -f "$file" ]; then
-        git add "$file"
-      fi
-    done
-  fi
-fi
-
-# Check if staged files actually changed
-NEW_STAGED_HASH=$(git diff --cached | sha256sum | cut -d' ' -f1)
-if [ "$STAGED_HASH" != "$NEW_STAGED_HASH" ]; then
-  echo "✨ Files formatted by Ultracite"
-fi
-
-exit $FORMAT_EXIT_CODE
+# Format only staged files via lint-staged (configured in package.json).
+# lint-staged backs up unstaged changes and restores them after formatting,
+# rolling back automatically on failure. The previous hand-rolled hook ran
+# `bun x ultracite fix` repo-wide and did its own stash push/pop; the
+# repo-wide run rewrote ~55 untouched files (CRLF->LF on Windows) and the
+# naive `git stash pop` then conflicted whenever unstaged edits overlapped
+# with formatter output, stranding uncommitted work in the hook stash.
+bun x lint-staged
