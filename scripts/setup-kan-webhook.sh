@@ -5,17 +5,17 @@
 # KAN_WEBHOOK_SECRET is never overwritten.
 #
 # Usage (on the droplet):
-#   sh setup-kan-webhook.sh [workspacePublicId ...]
+#   ENV_FILE=<path to Coolify service .env> sh setup-kan-webhook.sh <workspacePublicId ...>
 #
-# Default workspaces: Businessplan + CDS boards used by the kan sync.
+# Target kan workspaces are passed as arguments (or via the KAN_WORKSPACES
+# env var) — there is intentionally no default.
 set -euo pipefail
 
-ENV_FILE=${ENV_FILE:-/data/coolify/services/***REMOVED***/.env}
+ENV_FILE=${ENV_FILE:?error: set ENV_FILE to the Coolify service .env path}
 WEBHOOK_URL=${WEBHOOK_URL:-https://report.ewu.tools/api/webhooks/kan}
 WEBHOOK_NAME=${WEBHOOK_NAME:-crikket-resolution-sync}
-DEFAULT_WORKSPACES="***REMOVED*** ***REMOVED***"
 
-WORKSPACES="${*:-$DEFAULT_WORKSPACES}"
+WORKSPACES="${*:-${KAN_WORKSPACES:?error: pass kan workspace public IDs as arguments or set KAN_WORKSPACES}}"
 
 read_env() {
   { grep "^$1=" "$ENV_FILE" || true; } | tail -n1 | cut -d= -f2- | tr -d '\r'"'\""

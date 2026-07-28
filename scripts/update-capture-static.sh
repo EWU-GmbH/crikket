@@ -8,12 +8,13 @@
 # this script must run after every web image build.
 #
 # Runs on the droplet. Usage:
-#   sh scripts/update-capture-static.sh <image-tag>   # e.g. master-f301a7e
+#   CRIKKET_STATIC_DIR=<host static dir> sh scripts/update-capture-static.sh <image-tag>   # e.g. master-f301a7e
 set -eu
 
 TAG="${1:?usage: update-capture-static.sh <image-tag, e.g. master-f301a7e>}"
 IMAGE="ewu-crikket-web:${TAG}"
-STATIC_DIR="${STATIC_DIR:-/data/coolify/services/***REMOVED***/static}"
+# No default: the host path is deployment-specific and must be provided.
+STATIC_DIR="${CRIKKET_STATIC_DIR:?error: set CRIKKET_STATIC_DIR to the bind-mounted host directory that serves /crikket-capture.js}"
 BUNDLE_PATH="/app/sdks/capture/dist/capture.global.js"
 
 tmpdir="$(mktemp -d)"

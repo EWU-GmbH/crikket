@@ -9,10 +9,15 @@
 # Everything else is untagged/removed. Old states stay re-buildable from git
 # (git archive <sha>), so local old images are convenience only.
 #
-# Runs on the droplet. Usage: bash scripts/prune-old-images.sh
+# Runs on the droplet.
+# Usage: CRIKKET_SERVICE_UUID=<coolify service uuid> bash scripts/prune-old-images.sh
 set -euo pipefail
 
-SERVICE_UUID="${CRIKKET_SERVICE_UUID:-***REMOVED***}"
+if [[ -z "${CRIKKET_SERVICE_UUID:-}" ]]; then
+  echo "ERROR: set CRIKKET_SERVICE_UUID to the Coolify service UUID (compose project name)" >&2
+  exit 1
+fi
+SERVICE_UUID="${CRIKKET_SERVICE_UUID}"
 COMPOSE_FILE="${COMPOSE_FILE:-/data/coolify/services/${SERVICE_UUID}/docker-compose.yml}"
 REPOS=("ewu-crikket-server" "ewu-crikket-web")
 
