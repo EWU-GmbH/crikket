@@ -8,6 +8,9 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_COOKIE_DOMAIN: z.string().min(1).optional(),
+    // Public origin of the web app for absolute links (e.g. report links in Kan
+    // cards). Falls back to CORS_ORIGINS[0], then BETTER_AUTH_URL.
+    PUBLIC_APP_URL: z.url().optional(),
     ALLOWED_SIGNUP_DOMAINS: z
       .string()
       .optional()

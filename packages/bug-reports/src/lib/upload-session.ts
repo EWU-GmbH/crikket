@@ -1,4 +1,5 @@
 import { db } from "@crikket/db"
+import { env } from "@crikket/env/server"
 import {
   bugReport,
   bugReportAttachment,
@@ -711,6 +712,20 @@ function resolveSubmissionStatus(input: {
     : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
 }
 
+const TRAILING_SLASHES_REGEX = /\/+$/
+
+/**
+ * Absolute public origin of the web app, so Kan cards link straight to the
+ * Crikket report. Mirrors the server's capture share-origin fallback chain.
+ */
+function getPublicShareOrigin(): string {
+  return (
+    env.PUBLIC_APP_URL ??
+    env.CORS_ORIGINS[0] ??
+    env.BETTER_AUTH_URL
+  ).replace(TRAILING_SLASHES_REGEX, "")
+}
+
 async function syncBugReportToKan(input: {
   id: string
   organizationId: string
@@ -735,7 +750,7 @@ async function syncBugReportToKan(input: {
       input.description?.trim() || "",
       input.url ? `Page: ${input.url}` : "",
       input.priority ? `Priority: ${input.priority}` : "",
-      `Crikket report: ${input.sharePath}`,
+      `Crikket report: ${getPublicShareOrigin()}${input.sharePath}`,
       `Report ID: ${input.id}`,
     ]
       .filter((line) => line.length > 0)
