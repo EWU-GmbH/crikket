@@ -6,7 +6,6 @@ import type {
   CapturePriority,
 } from "../../types"
 import type { CaptureUiState, CaptureUiStore } from "../types"
-import { readStoredReporterEmail } from "../utils/reporter-email"
 
 const DEFAULT_PRIORITY: CapturePriority = PRIORITY_OPTIONS.none
 const DEFAULT_SUMMARY: CaptureDebuggerSummary = {
@@ -55,7 +54,7 @@ export function createCaptureUiStore(): CaptureUiStore {
         description: "",
         priority: DEFAULT_PRIORITY,
         visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
-        reporterEmail: readStoredReporterEmail(),
+        reporterEmail: "",
       },
       reviewFormKey: input.media.objectUrl,
     })
@@ -91,7 +90,7 @@ export function createCaptureUiStore(): CaptureUiStore {
         featureRequestDraft: {
           title: "",
           description: "",
-          email: readStoredReporterEmail(),
+          email: "",
         },
       })
     },

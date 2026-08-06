@@ -15,6 +15,7 @@ import {
   unmount,
 } from "./index"
 import type { CaptureGlobalApi } from "./types"
+import { clearLegacyStoredReporterEmail } from "./ui/utils/reporter-email"
 
 const capture = {
   close,
@@ -40,5 +41,6 @@ declare global {
 }
 
 if (typeof window !== "undefined") {
+  clearLegacyStoredReporterEmail()
   window.CrikketCapture = capture
 }

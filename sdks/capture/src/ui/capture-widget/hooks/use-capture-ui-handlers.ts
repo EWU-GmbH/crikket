@@ -6,10 +6,7 @@ import type {
   CaptureUiHandlers,
   CaptureUiStore,
 } from "../../types"
-import {
-  isValidReporterEmail,
-  storeReporterEmail,
-} from "../../utils/reporter-email"
+import { isValidReporterEmail } from "../../utils/reporter-email"
 
 const COPY_RESET_DELAY_MS = 1500
 
@@ -142,11 +139,6 @@ export function useCaptureUiHandlers(
 
         return input.callbacks
           .onSubmit(draft, options)
-          .then(() => {
-            if (draft.reporterEmail) {
-              storeReporterEmail(draft.reporterEmail)
-            }
-          })
           .catch((error) => {
             input.store.showError(toUserError(error))
           })
@@ -177,7 +169,6 @@ export function useCaptureUiHandlers(
         return input.callbacks
           .onSubmitFeatureRequest(draft)
           .then(() => {
-            storeReporterEmail(email)
             input.store.showSuccess("")
           })
           .catch((error) => {
