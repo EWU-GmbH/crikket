@@ -26,13 +26,18 @@ export function handleBugReportStatusTransition(input: {
   organizationId: string
   previousStatus: string
   newStatus: string
+  resolutionMessage?: string
 }): void {
   const wasResolved = isResolvedStatus(input.previousStatus)
   const isResolved = isResolvedStatus(input.newStatus)
 
   if (!wasResolved && isResolved) {
     notifyReporterAboutResolutionInBackground(
-      { kind: "bug-report", id: input.id },
+      {
+        kind: "bug-report",
+        id: input.id,
+        resolutionMessage: input.resolutionMessage,
+      },
       `bug-report ${input.id} resolution`
     )
     moveKanCardToDoneInBackground(input)

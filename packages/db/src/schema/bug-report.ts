@@ -147,6 +147,25 @@ export const bugReportUploadSessionAttachment = pgTable(
   ]
 )
 
+export const bugReportComment = pgTable(
+  "bug_report_comment",
+  {
+    id: text("id").primaryKey(),
+    bugReportId: text("bug_report_id")
+      .notNull()
+      .references(() => bugReport.id, { onDelete: "cascade" }),
+    authorUserId: text("author_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    kind: text("kind").notNull(), // to_reporter | internal
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("bug_report_comment_bugReportId_idx").on(table.bugReportId),
+  ]
+)
+
 export const bugReportLog = pgTable(
   "bug_report_log",
   {
@@ -293,10 +312,25 @@ export const bugReportRelations = relations(bugReport, ({ one, many }) => ({
     references: [user.id],
   }),
   attachments: many(bugReportAttachment),
+  comments: many(bugReportComment),
   logs: many(bugReportLog),
   networkRequests: many(bugReportNetworkRequest),
   actions: many(bugReportAction),
 }))
+
+export const bugReportCommentRelations = relations(
+  bugReportComment,
+  ({ one }) => ({
+    bugReport: one(bugReport, {
+      fields: [bugReportComment.bugReportId],
+      references: [bugReport.id],
+    }),
+    author: one(user, {
+      fields: [bugReportComment.authorUserId],
+      references: [user.id],
+    }),
+  })
+)
 
 export const bugReportAttachmentRelations = relations(
   bugReportAttachment,

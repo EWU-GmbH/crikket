@@ -1,9 +1,22 @@
 export const BUG_REPORT_STATUS_OPTIONS = {
   open: "open",
   inProgress: "in_progress",
+  needsInfo: "needs_info",
   resolved: "resolved",
   closed: "closed",
 } as const
+
+export const BUG_REPORT_COMMENT_KIND_OPTIONS = {
+  toReporter: "to_reporter",
+  internal: "internal",
+} as const
+
+export type BugReportCommentKind =
+  (typeof BUG_REPORT_COMMENT_KIND_OPTIONS)[keyof typeof BUG_REPORT_COMMENT_KIND_OPTIONS]
+
+export const BUG_REPORT_COMMENT_KIND_VALUES = Object.values(
+  BUG_REPORT_COMMENT_KIND_OPTIONS
+) as [BugReportCommentKind, ...BugReportCommentKind[]]
 
 export type BugReportStatus =
   (typeof BUG_REPORT_STATUS_OPTIONS)[keyof typeof BUG_REPORT_STATUS_OPTIONS]

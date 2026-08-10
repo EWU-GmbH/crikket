@@ -27,6 +27,7 @@ import { toggleValue } from "../_components/bug-reports/utils"
 const STATUS_VALUES = [
   BUG_REPORT_STATUS_OPTIONS.open,
   BUG_REPORT_STATUS_OPTIONS.inProgress,
+  BUG_REPORT_STATUS_OPTIONS.needsInfo,
   BUG_REPORT_STATUS_OPTIONS.resolved,
   BUG_REPORT_STATUS_OPTIONS.closed,
 ] as const satisfies readonly BugReportStatus[]

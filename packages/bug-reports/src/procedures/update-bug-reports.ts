@@ -1,13 +1,23 @@
 import { db } from "@crikket/db"
 import { bugReport } from "@crikket/db/schema/bug-report"
 import {
+  BUG_REPORT_COMMENT_KIND_OPTIONS,
+} from "@crikket/shared/constants/bug-report"
+import {
   PRIORITY_OPTIONS,
   type Priority,
 } from "@crikket/shared/constants/priorities"
 import { ORPCError } from "@orpc/server"
 import { and, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
-import { handleBugReportStatusTransition } from "../lib/status-side-effects"
+import {
+  handleBugReportStatusTransition,
+  isResolvedStatus,
+} from "../lib/status-side-effects"
+import {
+  commentBodySchema,
+  insertBugReportComment,
+} from "./bug-report-comments"
 import {
   isStatus,
   isVisibility,
@@ -33,6 +43,7 @@ const bugReportUpdateInputSchema = z
     priority: z.enum(priorityValues).optional(),
     visibility: z.enum(visibilityValues).optional(),
     tags: tagsInputSchema.optional(),
+    resolutionMessage: commentBodySchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -40,12 +51,28 @@ const bugReportUpdateInputSchema = z
       value.status === undefined &&
       value.priority === undefined &&
       value.visibility === undefined &&
-      value.tags === undefined
+      value.tags === undefined &&
+      value.resolutionMessage === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "At least one update field is required",
       })
+    }
+
+    if (value.resolutionMessage !== undefined) {
+      const targetStatus = value.status
+      if (
+        targetStatus !== undefined &&
+        !isResolvedStatus(targetStatus)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Abschlussnachricht ist nur bei Status Resolved oder Closed möglich",
+          path: ["resolutionMessage"],
+        })
+      }
     }
   })
 
@@ -114,19 +141,30 @@ export const updateBugReport = protectedProcedure
   .handler(async ({ context, input }) => {
     const activeOrgId = requireBugReportsWriteAccess(context)
     const values = buildUpdateValues(input)
+    const authorUserId = context.session?.user.id ?? null
 
-    const previousStatus =
-      input.status === undefined
-        ? undefined
-        : (
-            await db.query.bugReport.findFirst({
-              where: and(
-                eq(bugReport.id, input.id),
-                eq(bugReport.organizationId, activeOrgId)
-              ),
-              columns: { status: true },
-            })
-          )?.status
+    const existingReport =
+      input.status !== undefined || input.resolutionMessage !== undefined
+        ? await db.query.bugReport.findFirst({
+            where: and(
+              eq(bugReport.id, input.id),
+              eq(bugReport.organizationId, activeOrgId)
+            ),
+            columns: { status: true },
+          })
+        : undefined
+
+    const previousStatus = existingReport?.status
+
+    if (input.resolutionMessage !== undefined) {
+      const effectiveStatus = input.status ?? previousStatus
+      if (!effectiveStatus || !isResolvedStatus(effectiveStatus)) {
+        throw new ORPCError("BAD_REQUEST", {
+          message:
+            "Abschlussnachricht ist nur bei Status Resolved oder Closed möglich",
+        })
+      }
+    }
 
     const updated = await db
       .update(bugReport)
@@ -151,6 +189,22 @@ export const updateBugReport = protectedProcedure
       throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
     }
 
+    const resolutionMessage = input.resolutionMessage?.trim()
+    const transitionedToResolved =
+      input.status !== undefined &&
+      previousStatus !== undefined &&
+      previousStatus !== report.status &&
+      isResolvedStatus(report.status)
+
+    if (resolutionMessage && transitionedToResolved) {
+      await insertBugReportComment({
+        bugReportId: report.id,
+        authorUserId,
+        body: resolutionMessage,
+        kind: BUG_REPORT_COMMENT_KIND_OPTIONS.toReporter,
+      })
+    }
+
     if (
       input.status !== undefined &&
       previousStatus !== undefined &&
@@ -161,6 +215,10 @@ export const updateBugReport = protectedProcedure
         organizationId: activeOrgId,
         previousStatus,
         newStatus: report.status,
+        resolutionMessage:
+          transitionedToResolved && resolutionMessage
+            ? resolutionMessage
+            : undefined,
       })
     }
 

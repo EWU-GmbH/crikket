@@ -28,6 +28,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@crikket/ui/components/ui/sheet"
+import { Textarea } from "@crikket/ui/components/ui/textarea"
 import { useForm } from "@tanstack/react-form"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -38,9 +39,17 @@ import { client } from "@/utils/orpc"
 const statusOptions: Array<{ label: string; value: BugReportStatus }> = [
   { label: "Open", value: BUG_REPORT_STATUS_OPTIONS.open },
   { label: "In Progress", value: BUG_REPORT_STATUS_OPTIONS.inProgress },
+  { label: "Rückfrage", value: BUG_REPORT_STATUS_OPTIONS.needsInfo },
   { label: "Resolved", value: BUG_REPORT_STATUS_OPTIONS.resolved },
   { label: "Closed", value: BUG_REPORT_STATUS_OPTIONS.closed },
 ]
+
+function isClosingStatus(status: BugReportStatus): boolean {
+  return (
+    status === BUG_REPORT_STATUS_OPTIONS.resolved ||
+    status === BUG_REPORT_STATUS_OPTIONS.closed
+  )
+}
 
 const priorityOptions: Array<{ label: string; value: Priority }> = [
   { label: "Critical", value: PRIORITY_OPTIONS.critical },
@@ -112,6 +121,7 @@ export function EditBugReportSheet({
       status: report.status,
       priority: report.priority,
       visibility: report.visibility,
+      resolutionMessage: "",
     },
     validators: {
       onChange: editBugReportFormSchema,
@@ -120,6 +130,7 @@ export function EditBugReportSheet({
       setIsSaving(true)
 
       try {
+        const resolutionMessage = value.resolutionMessage?.trim()
         await client.bugReport.update({
           id: report.id,
           title: value.title.trim(),
@@ -127,6 +138,9 @@ export function EditBugReportSheet({
           status: value.status,
           priority: value.priority,
           visibility: value.visibility,
+          ...(isClosingStatus(value.status) && resolutionMessage
+            ? { resolutionMessage }
+            : {}),
         })
         await onUpdated?.()
         toast.success("Bug report updated")
@@ -148,6 +162,7 @@ export function EditBugReportSheet({
       status: report.status,
       priority: report.priority,
       visibility: report.visibility,
+      resolutionMessage: "",
     })
   }
 
@@ -316,6 +331,44 @@ export function EditBugReportSheet({
                 </Field>
               )}
             </form.Field>
+
+            <form.Subscribe selector={(state) => state.values.status}>
+              {(status) =>
+                isClosingStatus(status) ? (
+                  <form.Field name="resolutionMessage">
+                    {(field) => {
+                      const isInvalid =
+                        field.state.meta.isTouched &&
+                        field.state.meta.errors.length > 0
+
+                      return (
+                        <Field data-invalid={isInvalid}>
+                          <FieldLabel htmlFor={field.name}>
+                            Nachricht an Ersteller
+                          </FieldLabel>
+                          <Textarea
+                            aria-invalid={isInvalid}
+                            id={field.name}
+                            maxLength={4000}
+                            name={field.name}
+                            onBlur={field.handleBlur}
+                            onChange={(event) =>
+                              field.handleChange(event.target.value)
+                            }
+                            placeholder="Optional: Was wurde gemacht? Erscheint in der Erledigt-Mail."
+                            rows={4}
+                            value={field.state.value ?? ""}
+                          />
+                          {isInvalid ? (
+                            <FieldError errors={field.state.meta.errors} />
+                          ) : null}
+                        </Field>
+                      )
+                    }}
+                  </form.Field>
+                ) : null
+              }
+            </form.Subscribe>
           </div>
 
           <SheetFooter className="mt-0 space-y-1 border-t pt-3">

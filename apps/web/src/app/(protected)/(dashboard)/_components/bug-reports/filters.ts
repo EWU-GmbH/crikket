@@ -15,6 +15,7 @@ export const STATUS_OPTIONS: Array<{ value: BugReportStatus; label: string }> =
   [
     { value: BUG_REPORT_STATUS_OPTIONS.open, label: "Open" },
     { value: BUG_REPORT_STATUS_OPTIONS.inProgress, label: "In Progress" },
+    { value: BUG_REPORT_STATUS_OPTIONS.needsInfo, label: "Rückfrage" },
     { value: BUG_REPORT_STATUS_OPTIONS.resolved, label: "Resolved" },
     { value: BUG_REPORT_STATUS_OPTIONS.closed, label: "Closed" },
   ]

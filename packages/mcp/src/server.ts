@@ -49,7 +49,7 @@ export function createCrikketMcpServer(client: AppRouterClient): McpServer {
         .optional(),
       search: z.string().max(200).optional(),
       statuses: z
-        .array(z.enum(["open", "in_progress", "resolved", "closed"]))
+        .array(z.enum(["open", "in_progress", "needs_info", "resolved", "closed"]))
         .optional(),
     },
     async (input) => {
@@ -138,7 +138,9 @@ export function createCrikketMcpServer(client: AppRouterClient): McpServer {
       priority: z
         .enum(["none", "low", "medium", "high", "critical"])
         .optional(),
-      status: z.enum(["open", "in_progress", "resolved", "closed"]).optional(),
+      status: z
+        .enum(["open", "in_progress", "needs_info", "resolved", "closed"])
+        .optional(),
       tags: z.array(z.string().min(1).max(40)).max(20).optional(),
       title: z.string().min(1).max(200).optional(),
       visibility: z.enum(["public", "private"]).optional(),

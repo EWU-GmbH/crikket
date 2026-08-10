@@ -2,6 +2,10 @@ import {
   deleteBugReport,
   deleteBugReportsBulk,
 } from "@crikket/bug-reports/procedures/delete-bug-reports"
+import {
+  addBugReportComment,
+  listBugReportComments,
+} from "@crikket/bug-reports/procedures/bug-report-comments"
 import { getBugReportById } from "@crikket/bug-reports/procedures/get-bug-report"
 import {
   getBugReportDebuggerEvents,
@@ -42,4 +46,6 @@ export const bugReportRouter = {
   update: updateBugReport,
   updateBulk: updateBugReportsBulk,
   updateVisibility: updateBugReportVisibility,
+  listComments: listBugReportComments,
+  addComment: addBugReportComment,
 }

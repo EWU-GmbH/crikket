@@ -16,11 +16,17 @@ const resendClient = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 const fromEmail = env.RESEND_FROM_EMAIL
 const fromName = "Crikket"
 
+function buildReplyTo(): string | undefined {
+  const replyTo = env.CRIKKET_SUPPORT_REPLY_TO?.trim()
+  return replyTo && replyTo.length > 0 ? replyTo : undefined
+}
+
 export async function sendResolutionEmail(input: {
   to: string
   kind: ResolutionEmailKind
   title: string
   shareUrl?: string
+  resolutionMessage?: string
 }): Promise<void> {
   const kindLabel = KIND_LABELS[input.kind]
   const subjectTitle =
@@ -33,9 +39,14 @@ export async function sendResolutionEmail(input: {
     `Ihre Meldung (${kindLabel}) wurde soeben erledigt:`,
     "",
     input.title,
-    "",
-    "Vielen Dank für Ihr Feedback — es hilft uns, das Produkt weiterzuentwickeln.",
   ]
+  if (input.resolutionMessage?.trim()) {
+    textLines.push("", "Was wir gemacht haben:", "", input.resolutionMessage.trim())
+  }
+  textLines.push(
+    "",
+    "Vielen Dank für Ihr Feedback — es hilft uns, das Produkt weiterzuentwickeln."
+  )
   if (input.shareUrl) {
     textLines.push("", `Meldung ansehen: ${input.shareUrl}`)
   }
@@ -69,8 +80,11 @@ export async function sendResolutionEmail(input: {
       kindLabel,
       title: input.title,
       shareUrl: input.shareUrl,
+      resolutionMessage: input.resolutionMessage,
     })
   )
+
+  const replyTo = buildReplyTo()
 
   const { error } = await resendClient.emails.send({
     from: `${fromName} <${fromEmail}>`,
@@ -78,6 +92,7 @@ export async function sendResolutionEmail(input: {
     subject,
     html,
     text: textLines.join("\n"),
+    ...(replyTo ? { replyTo } : {}),
   })
 
   if (error) {

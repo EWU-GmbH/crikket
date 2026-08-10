@@ -569,6 +569,10 @@ export function BugReportView({ id }: BugReportViewProps) {
     bugReportId: data.id,
     data,
     activeTab,
+    canEdit: data.canEdit,
+    onReportUpdated: async () => {
+      await refetch()
+    },
     onTabChange: handleTabChange,
     timeline: {
       actions: {

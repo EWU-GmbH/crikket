@@ -61,4 +61,7 @@ export const editBugReportFormSchema = z.object({
   status: z.enum(statusValues),
   priority: z.enum(priorityValues),
   visibility: z.enum(visibilityValues),
+  resolutionMessage: z
+    .string()
+    .max(4000, "Nachricht darf höchstens 4000 Zeichen haben"),
 })

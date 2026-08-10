@@ -15,13 +15,17 @@ type ResolutionEmailTemplateProps = {
   kindLabel: string
   title: string
   shareUrl?: string
+  resolutionMessage?: string
 }
 
 export function ResolutionEmailTemplate({
   kindLabel,
   title,
   shareUrl,
+  resolutionMessage,
 }: ResolutionEmailTemplateProps) {
+  const trimmedResolutionMessage = resolutionMessage?.trim()
+
   return (
     <Html>
       <Head />
@@ -34,6 +38,14 @@ export function ResolutionEmailTemplate({
               {`Ihre Meldung (${kindLabel}) wurde soeben erledigt:`}
             </Text>
             <Text style={titleStyle}>{title}</Text>
+            {trimmedResolutionMessage ? (
+              <>
+                <Text style={textStyle}>Was wir gemacht haben:</Text>
+                <Text style={resolutionMessageStyle}>
+                  {trimmedResolutionMessage}
+                </Text>
+              </>
+            ) : null}
             <Text style={textStyle}>
               Vielen Dank für Ihr Feedback — es hilft uns, das Produkt
               weiterzuentwickeln.
@@ -98,6 +110,17 @@ const titleStyle = {
   lineHeight: "22px",
   margin: "0 0 16px",
   padding: "12px 16px",
+}
+
+const resolutionMessageStyle = {
+  backgroundColor: "#ecfdf5",
+  border: "1px solid #bbf7d0",
+  borderRadius: "8px",
+  fontSize: "14px",
+  lineHeight: "22px",
+  margin: "0 0 16px",
+  padding: "12px 16px",
+  whiteSpace: "pre-wrap" as const,
 }
 
 const buttonStyle = {

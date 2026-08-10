@@ -40,6 +40,8 @@ export const env = createEnv({
       ),
     RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_FROM_EMAIL: z.email().optional(),
+    // Reply-To for reporter-facing emails (follow-up and resolution).
+    CRIKKET_SUPPORT_REPLY_TO: z.email().optional(),
     ENABLE_PAYMENTS: z
       .enum(["true", "false"])
       .default("true")

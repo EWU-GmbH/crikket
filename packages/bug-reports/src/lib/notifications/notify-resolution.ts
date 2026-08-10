@@ -2,12 +2,12 @@ import { db } from "@crikket/db"
 import { user } from "@crikket/db/schema/auth"
 import { bugReport } from "@crikket/db/schema/bug-report"
 import { featureRequest } from "@crikket/db/schema/feature-request"
-import { env } from "@crikket/env/server"
 import { and, eq, isNull } from "drizzle-orm"
 import {
   type ResolutionEmailKind,
   sendResolutionEmail,
 } from "./send-resolution-email"
+import { getBugReportShareUrl } from "./share-url"
 
 export type ResolvableKind = ResolutionEmailKind
 
@@ -123,13 +123,15 @@ async function resolveRecipientEmail(
   return reporter?.email ?? null
 }
 
-function resolveShareUrl(record: ResolvableRecord): string | undefined {
-  const appUrl = env.CORS_ORIGINS[0]
-  if (!appUrl || record.visibility !== "public") {
-    return undefined
+function resolveShareUrl(
+  record: ResolvableRecord,
+  kind: ResolvableKind
+): string | undefined {
+  if (kind === "bug-report") {
+    return getBugReportShareUrl(record.id)
   }
 
-  return new URL(`/s/${record.id}`, appUrl).toString()
+  return undefined
 }
 
 /**
@@ -139,6 +141,7 @@ function resolveShareUrl(record: ResolvableRecord): string | undefined {
 export async function notifyReporterAboutResolution(input: {
   kind: ResolvableKind
   id: string
+  resolutionMessage?: string
 }): Promise<void> {
   const record = await loadResolvableRecord(input)
   if (!record) {
@@ -159,7 +162,8 @@ export async function notifyReporterAboutResolution(input: {
     to: recipient,
     kind: input.kind,
     title: record.title || FALLBACK_TITLES[input.kind],
-    shareUrl: resolveShareUrl(record),
+    shareUrl: resolveShareUrl(record, input.kind),
+    resolutionMessage: input.resolutionMessage,
   })
 }
 
@@ -168,6 +172,7 @@ export function notifyReporterAboutResolutionInBackground(
   input: {
     kind: ResolvableKind
     id: string
+    resolutionMessage?: string
   },
   context: string
 ): void {

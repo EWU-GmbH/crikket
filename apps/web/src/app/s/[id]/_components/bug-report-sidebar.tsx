@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from "react"
 
 import { NetworkRequestsPanel } from "./network-requests-panel"
+import { BugReportCommunication } from "./bug-report-communication"
 import { TimelineList } from "./timeline-list"
 import type {
   DebuggerNetworkRequest,
@@ -40,6 +41,8 @@ interface BugReportSidebarProps {
   activeTab: SidebarTab
   tabAction?: ReactNode
   onTabChange: (tab: SidebarTab) => void
+  canEdit?: boolean
+  onReportUpdated?: () => Promise<void> | void
   timeline: {
     actions: TimelineSidebarState
     console: TimelineSidebarState
@@ -54,6 +57,8 @@ export function BugReportSidebar({
   activeTab,
   tabAction,
   onTabChange,
+  canEdit = false,
+  onReportUpdated,
   timeline,
   network,
   onEntrySelect,
@@ -170,6 +175,16 @@ export function BugReportSidebar({
                 ) : null}
               </div>
             </div>
+            {canEdit ? (
+              <>
+                <Separator />
+                <BugReportCommunication
+                  bugReportId={bugReportId}
+                  canEdit={canEdit}
+                  onReportUpdated={onReportUpdated}
+                />
+              </>
+            ) : null}
           </div>
         )}
 
