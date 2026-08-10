@@ -112,6 +112,7 @@ export const getBugReportById = o
       debuggerIngestionError: report.debuggerIngestionError,
       visibility,
       canEdit,
+      reporterEmail: canEdit ? report.reporterEmail : null,
       deviceInfo: report.deviceInfo,
       metadata: report.metadata,
       createdAt: report.createdAt.toISOString(),

@@ -61,6 +61,7 @@ export interface BugReportListItem {
   debuggerIngestionError: string | undefined
   priority: Priority
   tags: string[]
+  reporterEmail: string | null
   url: string | undefined
   createdAt: string
   updatedAt: string
@@ -185,6 +186,7 @@ interface BugReportListRecord {
   status: string
   priority: string
   tags: string[] | null
+  reporterEmail: string | null
   url: string | null
   createdAt: Date
   updatedAt: Date
@@ -254,6 +256,7 @@ async function mapBugReportListItem(
     debuggerIngestionError: report.debuggerIngestionError ?? undefined,
     priority: normalizePriority(report.priority),
     tags: Array.isArray(report.tags) ? report.tags : [],
+    reporterEmail: report.reporterEmail,
     url: report.url ?? undefined,
     uploader,
     createdAt: report.createdAt.toISOString(),

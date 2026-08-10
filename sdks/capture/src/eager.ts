@@ -1,5 +1,6 @@
 import { CaptureSdkRuntime } from "./runtime/capture-runtime"
 import type {
+  CaptureIdentifyInput,
   CaptureInitOptions,
   CaptureRuntimeController,
   CaptureSubmissionDraft,
@@ -9,6 +10,7 @@ import type {
 export { defaultSubmitTransport } from "./transport/default-submit-transport"
 export type {
   CaptureDebuggerSummary,
+  CaptureIdentifyInput,
   CaptureInitOptions,
   CapturePriority,
   CaptureReportVisibility,
@@ -19,6 +21,7 @@ export type {
   CaptureSubmitResult,
   CaptureSubmitTransport,
   CaptureType,
+  ReporterEmailResolver,
 } from "./types"
 
 const runtime = new CaptureSdkRuntime()
@@ -75,4 +78,8 @@ export function isInitialized(): boolean {
 
 export function getConfig() {
   return runtime.getConfig()
+}
+
+export function identify(input: CaptureIdentifyInput): void {
+  runtime.identify(input)
 }

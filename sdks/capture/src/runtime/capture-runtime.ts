@@ -5,6 +5,7 @@ import {
 } from "../media/lazy-capture-media"
 import type {
   CapturedMedia,
+  CaptureIdentifyInput,
   CaptureInitOptions,
   CaptureRuntimeConfig,
   CaptureRuntimeController,
@@ -15,6 +16,13 @@ import type {
 } from "../types"
 import { mountCaptureUi } from "../ui/mount-capture-ui"
 import type { CaptureReviewSubmitOptions, MountedCaptureUi } from "../ui/types"
+import {
+  configureReporterIdentity,
+  getCachedReporterEmail,
+  resetReporterIdentity,
+  resolveReporterEmail,
+  setReporterEmail,
+} from "./reporter-identity"
 import {
   normalizeHost,
   normalizeKey,
@@ -42,6 +50,13 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
 
     this.runtimeConfig = config
     this.submitTransport = options.submitTransport
+    configureReporterIdentity({
+      reporterEmail: options.reporterEmail,
+      getReporterEmail: options.getReporterEmail,
+    })
+    void resolveReporterEmail().then((email) => {
+      this.applyReporterEmailPrefill(email)
+    })
 
     if (options.autoMount ?? true) {
       this.mount(options.mountTarget)
@@ -132,11 +147,17 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
     this.mountedUi?.store.close()
   }
 
+  identify(input: CaptureIdentifyInput): void {
+    const email = setReporterEmail(input.email)
+    this.applyReporterEmailPrefill(email)
+  }
+
   destroy(): void {
     this.reset()
     this.unmount()
     this.runtimeConfig = null
     this.submitTransport = undefined
+    resetReporterIdentity()
   }
 
   async startRecording(): Promise<{ startedAt: number }> {
@@ -321,6 +342,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       media,
       warnings: review.warnings,
       summary: review.debuggerSummary,
+      knownReporterEmail: getCachedReporterEmail(),
     })
     this.prefillTitle()
   }
@@ -350,6 +372,14 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
     }
 
     this.mountedUi?.store.setTitleIfEmpty(captureTitle)
+  }
+
+  private applyReporterEmailPrefill(email: string): void {
+    if (email.trim().length === 0) {
+      return
+    }
+
+    this.mountedUi?.store.applyReporterEmailPrefill(email)
   }
 
   private getRuntimeConfig(): CaptureRuntimeConfig {

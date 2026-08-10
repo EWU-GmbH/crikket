@@ -35,6 +35,27 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
 
 const tagsInputSchema = z.array(z.string().trim().min(1).max(40)).max(20)
 
+const reporterEmailInputSchema = z
+  .string()
+  .trim()
+  .max(320)
+  .optional()
+  .superRefine((value, ctx) => {
+    if (value !== undefined && value.length > 0 && !z.email().safeParse(value).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Ungültige E-Mail-Adresse",
+      })
+    }
+  })
+  .transform((value) => {
+    if (value === undefined) {
+      return undefined
+    }
+
+    return value.length > 0 ? value : null
+  })
+
 const bugReportUpdateInputSchema = z
   .object({
     id: z.string().min(1),
@@ -43,6 +64,7 @@ const bugReportUpdateInputSchema = z
     priority: z.enum(priorityValues).optional(),
     visibility: z.enum(visibilityValues).optional(),
     tags: tagsInputSchema.optional(),
+    reporterEmail: reporterEmailInputSchema,
     resolutionMessage: commentBodySchema.optional(),
   })
   .superRefine((value, ctx) => {
@@ -52,6 +74,7 @@ const bugReportUpdateInputSchema = z
       value.priority === undefined &&
       value.visibility === undefined &&
       value.tags === undefined &&
+      value.reporterEmail === undefined &&
       value.resolutionMessage === undefined
     ) {
       ctx.addIssue({
@@ -104,6 +127,7 @@ function buildUpdateValues(input: {
   priority?: Priority
   visibility?: (typeof visibilityValues)[number]
   tags?: string[]
+  reporterEmail?: string | null
 }) {
   const values: {
     title?: string
@@ -111,6 +135,7 @@ function buildUpdateValues(input: {
     priority?: string
     visibility?: string
     tags?: string[]
+    reporterEmail?: string | null
   } = {}
 
   if (input.title !== undefined) {
@@ -131,6 +156,10 @@ function buildUpdateValues(input: {
 
   if (input.tags !== undefined) {
     values.tags = normalizeTags(input.tags) ?? []
+  }
+
+  if (input.reporterEmail !== undefined) {
+    values.reporterEmail = input.reporterEmail
   }
 
   return values

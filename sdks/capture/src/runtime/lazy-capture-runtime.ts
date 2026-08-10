@@ -1,4 +1,5 @@
 import type {
+  CaptureIdentifyInput,
   CaptureInitOptions,
   CaptureRuntimeConfig,
   CaptureRuntimeController,
@@ -14,6 +15,12 @@ import {
   normalizeZIndex,
 } from "../utils"
 import { CaptureSdkRuntime } from "./capture-runtime"
+import {
+  configureReporterIdentity,
+  resetReporterIdentity,
+  resolveReporterEmail,
+  setReporterEmail,
+} from "./reporter-identity"
 
 type MountedCaptureLauncher = ReturnType<typeof mountCaptureLauncher>
 
@@ -45,6 +52,13 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
       zIndex: runtimeConfig.zIndex,
       submitTransport: this.submitTransport,
     }
+    configureReporterIdentity({
+      reporterEmail: options.reporterEmail,
+      getReporterEmail: options.getReporterEmail,
+    })
+    void resolveReporterEmail().then((email) => {
+      this.eagerRuntime?.identify({ email })
+    })
 
     if (options.autoMount ?? true) {
       this.mount(options.mountTarget)
@@ -103,6 +117,11 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
     this.eagerRuntime?.close()
   }
 
+  identify(input: CaptureIdentifyInput): void {
+    const email = setReporterEmail(input.email)
+    this.eagerRuntime?.identify({ email })
+  }
+
   destroy(): void {
     this.lifecycleVersion += 1
     this.mountedLauncher?.unmount()
@@ -114,6 +133,7 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
     this.runtimeConfig = null
     this.initOptions = null
     this.submitTransport = undefined
+    resetReporterIdentity()
   }
 
   async startRecording(): Promise<{ startedAt: number }> {

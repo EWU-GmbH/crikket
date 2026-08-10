@@ -36,6 +36,7 @@ export function createCaptureUiStore(): CaptureUiStore {
     media: CapturedMedia
     warnings: string[]
     summary: CaptureDebuggerSummary
+    knownReporterEmail?: string
   }) => {
     patchState({
       overlayOpen: true,
@@ -54,7 +55,7 @@ export function createCaptureUiStore(): CaptureUiStore {
         description: "",
         priority: DEFAULT_PRIORITY,
         visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
-        reporterEmail: "",
+        reporterEmail: input.knownReporterEmail ?? "",
       },
       reviewFormKey: input.media.objectUrl,
     })
@@ -80,6 +81,7 @@ export function createCaptureUiStore(): CaptureUiStore {
       })
     },
     openFeatureRequest: () => {
+      const knownReporterEmail = getKnownReporterEmail(state)
       patchState({
         overlayOpen: true,
         recordingDockOpen: false,
@@ -90,7 +92,7 @@ export function createCaptureUiStore(): CaptureUiStore {
         featureRequestDraft: {
           title: "",
           description: "",
-          email: "",
+          email: knownReporterEmail,
         },
       })
     },
@@ -143,11 +145,46 @@ export function createCaptureUiStore(): CaptureUiStore {
         },
       })
     },
+    applyReporterEmailPrefill: (email) => {
+      const normalized = email.trim()
+      if (normalized.length === 0) {
+        return
+      }
+
+      const nextReviewDraft = { ...state.reviewDraft }
+      if ((nextReviewDraft.reporterEmail?.trim() ?? "").length === 0) {
+        nextReviewDraft.reporterEmail = normalized
+      }
+
+      const nextFeatureRequestDraft = { ...state.featureRequestDraft }
+      if (nextFeatureRequestDraft.email.trim().length === 0) {
+        nextFeatureRequestDraft.email = normalized
+      }
+
+      patchState({
+        reviewDraft: nextReviewDraft,
+        featureRequestDraft: nextFeatureRequestDraft,
+      })
+    },
     destroy: () => {
       state = createInitialState()
       listeners.clear()
     },
   }
+}
+
+function getKnownReporterEmail(state: CaptureUiState): string {
+  const fromReview = state.reviewDraft.reporterEmail?.trim() ?? ""
+  if (fromReview.length > 0) {
+    return fromReview
+  }
+
+  const fromFeature = state.featureRequestDraft.email.trim()
+  if (fromFeature.length > 0) {
+    return fromFeature
+  }
+
+  return ""
 }
 
 function createInitialState(): CaptureUiState {

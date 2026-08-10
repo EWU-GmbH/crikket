@@ -75,6 +75,16 @@ export interface BugReportDebuggerPayload {
   }>
 }
 
+export type ReporterEmailResolver = () =>
+  | string
+  | null
+  | undefined
+  | Promise<string | null | undefined>
+
+export interface CaptureIdentifyInput {
+  email?: string | null
+}
+
 export interface CaptureInitOptions {
   key: string
   host?: string
@@ -83,6 +93,10 @@ export interface CaptureInitOptions {
   submitPath?: string
   zIndex?: number
   submitTransport?: CaptureSubmitTransport
+  /** Prefill reporter email in the widget form (optional, editable). */
+  reporterEmail?: string
+  /** Resolve reporter email from the host app's auth state. */
+  getReporterEmail?: ReporterEmailResolver
 }
 
 export interface CaptureRuntimeConfig {
@@ -193,6 +207,7 @@ export interface CaptureRuntimeController {
   destroy: () => void
   mount: (target?: HTMLElement) => void
   unmount: () => void
+  identify: (input: CaptureIdentifyInput) => void
   startRecording: () => Promise<{ startedAt: number }>
   stopRecording: () => Promise<Blob | null>
   takeScreenshot: () => Promise<Blob | null>

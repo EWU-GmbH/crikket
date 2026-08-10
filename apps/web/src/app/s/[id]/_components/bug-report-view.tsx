@@ -288,6 +288,7 @@ function renderBugReportLoadedView(input: {
             status: input.data.status,
             priority: input.data.priority,
             visibility: input.data.visibility,
+            reporterEmail: input.data.reporterEmail,
           }}
         />
       ) : null}

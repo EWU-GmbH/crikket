@@ -64,4 +64,13 @@ export const editBugReportFormSchema = z.object({
   resolutionMessage: z
     .string()
     .max(4000, "Nachricht darf höchstens 4000 Zeichen haben"),
+  reporterEmail: z.string().max(320).superRefine((value, ctx) => {
+    const trimmed = value.trim()
+    if (trimmed.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Geben Sie eine gültige E-Mail-Adresse ein.",
+      })
+    }
+  }),
 })

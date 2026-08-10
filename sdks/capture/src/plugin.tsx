@@ -21,9 +21,11 @@ export function CapturePlugin(
     const lifecycleVersion = lifecycleVersionRef.current
     const controller = init({
       autoMount: props.autoMount,
+      getReporterEmail: props.getReporterEmail,
       host: props.host,
       key: normalizedKey,
       mountTarget: props.mountTarget,
+      reporterEmail: props.reporterEmail,
       submitPath: props.submitPath,
       submitTransport: props.submitTransport,
       zIndex: props.zIndex,
@@ -40,9 +42,11 @@ export function CapturePlugin(
     }
   }, [
     props.autoMount,
+    props.getReporterEmail,
     props.host,
     props.mountTarget,
     props.publicKey,
+    props.reporterEmail,
     props.submitPath,
     props.submitTransport,
     props.zIndex,

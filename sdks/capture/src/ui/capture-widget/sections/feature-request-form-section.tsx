@@ -57,7 +57,9 @@ export function FeatureRequestFormSection(props: {
           value={props.email}
         />
         <p className="m-0 text-muted-foreground text-xs">
-          Wir informieren Sie, sobald Ihr Vorschlag umgesetzt ist.
+          {props.email.trim().length > 0
+            ? "Bei Umsetzung informieren wir Sie an diese Adresse."
+            : "Empfohlen für Rückfragen — keine Pflicht. Bei Umsetzung informieren wir Sie per E-Mail."}
         </p>
       </Field>
       {props.errorMessage ? (

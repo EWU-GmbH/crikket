@@ -80,6 +80,19 @@ Available options:
 - `mountTarget`: custom element to mount into; defaults to `document.body`
 - `submitPath`: custom bug report base path; defaults to `/api/embed/bug-reports`
 - `zIndex`: custom widget stacking order
+- `reporterEmail`: optional email to prefill in the widget form (editable)
+- `getReporterEmail`: optional callback to resolve the reporter email from host auth
+
+After init, call `identify({ email })` when the logged-in user changes:
+
+```ts
+import { identify, init } from "@crikket-io/capture"
+
+init({ key: "crk_your_public_key" })
+identify({ email: session.user.email })
+```
+
+Clear the prefilled email on logout with `identify({ email: null })`.
 
 `submitPath` is used as the base path for the capture control-plane flow. By
 default the SDK derives these routes from `/api/embed/bug-reports`:

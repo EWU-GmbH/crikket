@@ -307,7 +307,9 @@ export function ReviewFormSection({
                 value={form.draft.reporterEmail ?? ""}
               />
               <p className="m-0 text-muted-foreground text-xs">
-                Wir informieren Sie, sobald Ihr Bericht erledigt ist.
+                {(form.draft.reporterEmail?.trim() ?? "").length > 0
+                  ? "Bei Erledigung informieren wir Sie an diese Adresse."
+                  : "Empfohlen für Rückfragen — keine Pflicht. Bei Erledigung informieren wir Sie per E-Mail."}
               </p>
               {form.visibleErrors.reporterEmail ? (
                 <FieldError errors={[form.visibleErrors.reporterEmail]} />

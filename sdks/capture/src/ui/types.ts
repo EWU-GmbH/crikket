@@ -87,10 +87,12 @@ export interface CaptureUiStore {
     media: CapturedMedia
     warnings: string[]
     summary: CaptureDebuggerSummary
+    knownReporterEmail?: string
   }) => void
   showSuccess: (shareUrl?: string) => void
   showError: (message: string) => void
   setTitleIfEmpty: (value: string) => void
+  applyReporterEmailPrefill: (email: string) => void
   destroy: () => void
 }
 

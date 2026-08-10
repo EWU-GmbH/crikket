@@ -103,6 +103,7 @@ interface EditBugReportSheetProps {
     status: BugReportStatus
     priority: Priority
     visibility: BugReportVisibility
+    reporterEmail?: string | null
   }
 }
 
@@ -121,6 +122,7 @@ export function EditBugReportSheet({
       status: report.status,
       priority: report.priority,
       visibility: report.visibility,
+      reporterEmail: report.reporterEmail ?? "",
       resolutionMessage: "",
     },
     validators: {
@@ -131,6 +133,7 @@ export function EditBugReportSheet({
 
       try {
         const resolutionMessage = value.resolutionMessage?.trim()
+        const reporterEmail = value.reporterEmail.trim()
         await client.bugReport.update({
           id: report.id,
           title: value.title.trim(),
@@ -138,6 +141,7 @@ export function EditBugReportSheet({
           status: value.status,
           priority: value.priority,
           visibility: value.visibility,
+          reporterEmail,
           ...(isClosingStatus(value.status) && resolutionMessage
             ? { resolutionMessage }
             : {}),
@@ -162,6 +166,7 @@ export function EditBugReportSheet({
       status: report.status,
       priority: report.priority,
       visibility: report.visibility,
+      reporterEmail: report.reporterEmail ?? "",
       resolutionMessage: "",
     })
   }
@@ -241,6 +246,42 @@ export function EditBugReportSheet({
                       placeholder="auth, dashboard, onboarding"
                       value={field.state.value}
                     />
+                    {isInvalid ? (
+                      <FieldError errors={field.state.meta.errors} />
+                    ) : null}
+                  </Field>
+                )
+              }}
+            </form.Field>
+
+            <form.Field name="reporterEmail">
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched &&
+                  field.state.meta.errors.length > 0
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>
+                      E-Mail des Erstellers
+                    </FieldLabel>
+                    <Input
+                      aria-invalid={isInvalid}
+                      id={field.name}
+                      maxLength={320}
+                      name={field.name}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      placeholder="name@example.com"
+                      type="email"
+                      value={field.state.value}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Für Rückfragen per E-Mail. Leer lassen, um die Adresse zu
+                      entfernen.
+                    </p>
                     {isInvalid ? (
                       <FieldError errors={field.state.meta.errors} />
                     ) : null}
