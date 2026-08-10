@@ -59,12 +59,16 @@ export async function handleFeatureRequest(input: {
       })
     }
 
+    const featureRequestId = nanoid(12)
+
     const descriptionParts = [
       body.description,
       body.pageUrl ? `Page: ${body.pageUrl}` : "",
       body.pageTitle ? `Page title: ${body.pageTitle}` : "",
+      body.reporterEmail ? `Reporter: ${body.reporterEmail}` : "",
+      `Crikket feature request: ${featureRequestId}`,
       `Origin: ${authorization.origin}`,
-      "Source: Crikket widget feature request (no Crikket report).",
+      "Source: Crikket widget feature request.",
     ].filter((line) => line.length > 0)
 
     const card = await createKanCard({
@@ -79,23 +83,15 @@ export async function handleFeatureRequest(input: {
       })
     }
 
-    // Persist for resolution notifications; never blocks the widget response.
-    db.insert(featureRequest)
-      .values({
-        id: nanoid(12),
-        organizationId: authorization.organizationId,
-        reporterEmail: body.reporterEmail ?? null,
-        title: body.title,
-        description: body.description || null,
-        status: "open",
-        kanCardPublicId: card.publicId,
-      })
-      .catch((error: unknown) => {
-        console.error(
-          `[feature-request] failed to persist feature request for card ${card.publicId}`,
-          error
-        )
-      })
+    await db.insert(featureRequest).values({
+      id: featureRequestId,
+      organizationId: authorization.organizationId,
+      reporterEmail: body.reporterEmail ?? null,
+      title: body.title,
+      description: body.description || null,
+      status: "open",
+      kanCardPublicId: card.publicId,
+    })
 
     // Notify org owners about the new feature request.
     notifyOwnersAboutNewSubmissionInBackground(

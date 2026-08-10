@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm"
 import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core"
-import { organization } from "./auth"
+import { organization, user } from "./auth"
 
 export const featureRequest = pgTable(
   "feature_request",
@@ -27,9 +27,48 @@ export const featureRequest = pgTable(
   ]
 )
 
-export const featureRequestRelations = relations(featureRequest, ({ one }) => ({
-  organization: one(organization, {
-    fields: [featureRequest.organizationId],
-    references: [organization.id],
-  }),
-}))
+export const featureRequestComment = pgTable(
+  "feature_request_comment",
+  {
+    id: text("id").primaryKey(),
+    featureRequestId: text("feature_request_id")
+      .notNull()
+      .references(() => featureRequest.id, { onDelete: "cascade" }),
+    authorUserId: text("author_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    kind: text("kind").notNull(), // to_reporter | internal
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("feature_request_comment_featureRequestId_idx").on(
+      table.featureRequestId
+    ),
+  ]
+)
+
+export const featureRequestRelations = relations(
+  featureRequest,
+  ({ one, many }) => ({
+    organization: one(organization, {
+      fields: [featureRequest.organizationId],
+      references: [organization.id],
+    }),
+    comments: many(featureRequestComment),
+  })
+)
+
+export const featureRequestCommentRelations = relations(
+  featureRequestComment,
+  ({ one }) => ({
+    featureRequest: one(featureRequest, {
+      fields: [featureRequestComment.featureRequestId],
+      references: [featureRequest.id],
+    }),
+    author: one(user, {
+      fields: [featureRequestComment.authorUserId],
+      references: [user.id],
+    }),
+  })
+)

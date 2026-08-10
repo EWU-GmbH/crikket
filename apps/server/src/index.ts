@@ -22,6 +22,10 @@ import { handleCaptureFinalize } from "./capture/finalize-route"
 import { handleCaptureToken } from "./capture/token-route"
 import { handleCaptureUploadSession } from "./capture/upload-session-route"
 import { handleKanWebhook } from "./webhooks/kan-route"
+import {
+  handleKanFeatureRequestLookup,
+  handleKanFeatureRequestReporterFollowUp,
+} from "./kan/feature-request-route"
 
 const app = new Hono()
 const allowedCorsOrigins = env.CORS_ORIGINS
@@ -156,6 +160,23 @@ app.post("/api/webhooks/kan", (c) => {
     request: c.req.raw,
   })
 })
+
+app.get("/api/kan/feature-requests/by-card/:kanCardPublicId", (c) => {
+  return handleKanFeatureRequestLookup({
+    request: c.req.raw,
+    kanCardPublicId: c.req.param("kanCardPublicId"),
+  })
+})
+
+app.post(
+  "/api/kan/feature-requests/by-card/:kanCardPublicId/reporter-follow-up",
+  (c) => {
+    return handleKanFeatureRequestReporterFollowUp({
+      request: c.req.raw,
+      kanCardPublicId: c.req.param("kanCardPublicId"),
+    })
+  }
+)
 
 const cleanupInterval = setInterval(() => {
   runArtifactCleanupPass({ limit: 50 }).catch((error: unknown) => {
