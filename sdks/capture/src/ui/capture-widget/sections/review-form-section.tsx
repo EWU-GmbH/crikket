@@ -2,7 +2,7 @@ import {
   MAX_EXTRA_ATTACHMENT_SIZE_BYTES,
   MAX_EXTRA_ATTACHMENTS_PER_REPORT,
 } from "@crikket/shared/constants/bug-report"
-import { useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import type { CaptureSubmissionDraft } from "../../../types"
 import type { CaptureReviewSubmitOptions, CaptureUiState } from "../../types"
 import { MediaPreview } from "../components/media-preview"
@@ -65,7 +65,16 @@ export function ReviewFormSection({
   onCropScreenshot,
   onSubmit,
 }: ReviewFormSectionProps): React.JSX.Element {
-  const [annotations, setAnnotations] = useState<ScreenshotAnnotation[]>([])
+  const [annotations, setAnnotationsState] = useState<ScreenshotAnnotation[]>(
+    []
+  )
+  // Read on submit from the ref so a note committed during blur is included
+  // when the submit click follows in the same turn.
+  const annotationsRef = useRef<ScreenshotAnnotation[]>([])
+  const setAnnotations = useCallback((next: ScreenshotAnnotation[]): void => {
+    annotationsRef.current = next
+    setAnnotationsState(next)
+  }, [])
   const [extraAttachments, setExtraAttachments] = useState<
     PendingExtraAttachment[]
   >([])
@@ -90,7 +99,7 @@ export function ReviewFormSection({
       return []
     })
     setAttachmentError(null)
-  }, [state.media?.objectUrl])
+  }, [setAnnotations, state.media?.objectUrl])
 
   useEffect(() => {
     return () => {
@@ -107,9 +116,13 @@ export function ReviewFormSection({
     onSubmit: async (draft) => {
       let submitOptions: CaptureReviewSubmitOptions = {}
 
-      if (state.media?.captureType === "screenshot" && annotations.length > 0) {
+      const currentAnnotations = annotationsRef.current
+      if (
+        state.media?.captureType === "screenshot" &&
+        currentAnnotations.length > 0
+      ) {
         const screenshotBlobOverride = await createAnnotatedScreenshotBlob({
-          annotations,
+          annotations: currentAnnotations,
           imageUrl: state.media.objectUrl,
         })
 

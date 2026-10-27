@@ -47,6 +47,18 @@ export function RectangleIcon(
   )
 }
 
+export function TextIcon(
+  props: React.SVGProps<SVGSVGElement>
+): React.JSX.Element {
+  return (
+    <SvgIcon {...props}>
+      <path d="M4 7V4h16v3" />
+      <path d="M12 4v16" />
+      <path d="M8 20h8" />
+    </SvgIcon>
+  )
+}
+
 export function UndoIcon(
   props: React.SVGProps<SVGSVGElement>
 ): React.JSX.Element {

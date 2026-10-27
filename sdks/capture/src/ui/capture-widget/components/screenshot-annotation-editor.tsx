@@ -7,12 +7,16 @@ import {
 } from "react"
 import {
   clampAnnotationPoint,
+  clampScreenshotTextOrigin,
   createCroppedScreenshotBlob,
   drawScreenshotAnnotations,
+  getScreenshotTextFrame,
   type ScreenshotAnnotation,
   type ScreenshotAnnotationColor,
   type ScreenshotCropRect,
   screenshotAnnotationColorOptions,
+  screenshotTextFontFamily,
+  screenshotTextMaxLength,
 } from "../utils/screenshot-annotations"
 import {
   CheckIcon,
@@ -21,12 +25,21 @@ import {
   HighlightIcon,
   RectangleIcon,
   ResetIcon,
+  TextIcon,
   UndoIcon,
 } from "./icons"
 import { Button } from "./primitives/button"
 import { cn } from "./primitives/cn"
 
-type AnnotationTool = "draw" | "highlight" | "rectangle"
+type AnnotationTool = "draw" | "highlight" | "rectangle" | "text"
+
+type TextEditorState = {
+  color: ScreenshotAnnotationColor
+  sessionId: number
+  value: string
+  x: number
+  y: number
+}
 
 const DEFAULT_TOOL: AnnotationTool = "draw"
 const DEFAULT_COLOR = screenshotAnnotationColorOptions[0].value
@@ -46,6 +59,10 @@ export function ScreenshotAnnotationEditor(props: {
   const [loadedImage, setLoadedImage] = useState<HTMLImageElement | null>(null)
   const [tool, setTool] = useState<AnnotationTool>(DEFAULT_TOOL)
   const [color, setColor] = useState<ScreenshotAnnotationColor>(DEFAULT_COLOR)
+  const textEditorRef = useRef<TextEditorState | null>(null)
+  const textSessionRef = useRef(0)
+  const undoConsumedRef = useRef(false)
+  const [textEditor, setTextEditor] = useState<TextEditorState | null>(null)
   const [draftAnnotation, setDraftAnnotation] =
     useState<ScreenshotAnnotation | null>(null)
   const draftAnnotationRef = useRef<ScreenshotAnnotation | null>(null)
@@ -201,13 +218,86 @@ export function ScreenshotAnnotationEditor(props: {
       return
     }
 
-    props.onChange([...annotationsRef.current, annotation])
+    const nextAnnotations = [...annotationsRef.current, annotation]
+    annotationsRef.current = nextAnnotations
+    props.onChange(nextAnnotations)
     setDraftAnnotation(null)
     draftAnnotationRef.current = null
     rectangleOriginRef.current = null
   }
 
+  const commitTextEditor = () => {
+    const current = textEditorRef.current
+    if (!current) {
+      return
+    }
+
+    textEditorRef.current = null
+    setTextEditor(null)
+    const text = current.value.trim().slice(0, screenshotTextMaxLength)
+    if (text.length === 0) {
+      return
+    }
+
+    commitDraftAnnotation({
+      kind: "text",
+      color: current.color,
+      text,
+      x: current.x,
+      y: current.y,
+    })
+  }
+
+  const cancelTextEditor = () => {
+    textEditorRef.current = null
+    setTextEditor(null)
+  }
+
+  const openTextEditor = (point: { x: number; y: number }) => {
+    commitTextEditor()
+    const origin = clampScreenshotTextOrigin({
+      height: displayHeight,
+      point,
+      width: displayWidth,
+    })
+    const next: TextEditorState = {
+      color,
+      sessionId: textSessionRef.current + 1,
+      value: "",
+      x: origin.x,
+      y: origin.y,
+    }
+    textSessionRef.current = next.sessionId
+    textEditorRef.current = next
+    setTextEditor(next)
+  }
+
+  const applyColor = (nextColor: ScreenshotAnnotationColor) => {
+    setColor(nextColor)
+    const current = textEditorRef.current
+    if (!current) {
+      return
+    }
+
+    const next = { ...current, color: nextColor }
+    textEditorRef.current = next
+    setTextEditor(next)
+  }
+
+  const selectTool = (nextTool: AnnotationTool) => {
+    if (nextTool !== "text") {
+      commitTextEditor()
+    }
+    setTool(nextTool)
+  }
+
+  const replaceAnnotations = (nextAnnotations: ScreenshotAnnotation[]) => {
+    annotationsRef.current = nextAnnotations
+    props.onChange(nextAnnotations)
+  }
+
   const startCropping = () => {
+    commitTextEditor()
     setDraftAnnotation(null)
     draftAnnotationRef.current = null
     rectangleOriginRef.current = null
@@ -245,140 +335,34 @@ export function ScreenshotAnnotationEditor(props: {
     }
   }
 
+  const pointerContext: AnnotationPointerContext = {
+    color,
+    commitDraftAnnotation,
+    cropOriginRef,
+    cropRectRef,
+    disabled: props.disabled,
+    draftAnnotation,
+    draftAnnotationRef,
+    isCropping,
+    loadedImage,
+    openTextEditor,
+    rectangleOriginRef,
+    setCropRect,
+    setDraftAnnotation,
+    tool,
+  }
   const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (props.disabled || !loadedImage || event.button !== 0) {
-      return
-    }
-
-    const point = toCanvasPoint(event)
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    if (isCropping) {
-      cropOriginRef.current = point
-      const nextRect = { x: point.x, y: point.y, width: 0, height: 0 }
-      setCropRect(nextRect)
-      cropRectRef.current = nextRect
-      return
-    }
-
-    if (tool === "rectangle") {
-      rectangleOriginRef.current = point
-      setDraftAnnotation({
-        kind: "rectangle",
-        color,
-        x: point.x,
-        y: point.y,
-        width: 0,
-        height: 0,
-      })
-      return
-    }
-
-    setDraftAnnotation({
-      color,
-      kind: "stroke",
-      points: [point],
-      tool,
-    })
+    handleAnnotationPointerDown(event, pointerContext)
   }
-
   const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (!loadedImage) {
-      return
-    }
-
-    if (isCropping) {
-      const origin = cropOriginRef.current
-      const activeCrop = cropRectRef.current
-      if (!(origin && activeCrop)) {
-        return
-      }
-
-      const point = toCanvasPoint(event)
-      const nextRect = {
-        x: Math.min(origin.x, point.x),
-        y: Math.min(origin.y, point.y),
-        width: Math.abs(point.x - origin.x),
-        height: Math.abs(point.y - origin.y),
-      }
-      setCropRect(nextRect)
-      cropRectRef.current = nextRect
-      return
-    }
-
-    if (!draftAnnotation) {
-      return
-    }
-
-    const point = toCanvasPoint(event)
-    if (draftAnnotation.kind === "rectangle") {
-      const origin = rectangleOriginRef.current ?? {
-        x: draftAnnotation.x,
-        y: draftAnnotation.y,
-      }
-      setDraftAnnotation({
-        color: draftAnnotation.color,
-        kind: "rectangle",
-        x: Math.min(origin.x, point.x),
-        y: Math.min(origin.y, point.y),
-        width: Math.abs(point.x - origin.x),
-        height: Math.abs(point.y - origin.y),
-      })
-      return
-    }
-
-    setDraftAnnotation({
-      ...draftAnnotation,
-      points: [...draftAnnotation.points, point],
-    })
+    handleAnnotationPointerMove(event, pointerContext)
   }
-
   const handlePointerEnd = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-
-    if (isCropping) {
-      cropOriginRef.current = null
-      const activeCrop = cropRectRef.current
-      if (
-        activeCrop &&
-        (activeCrop.width < 0.005 || activeCrop.height < 0.005)
-      ) {
-        setCropRect(null)
-        cropRectRef.current = null
-      }
-      return
-    }
-
-    const activeDraft = draftAnnotationRef.current
-    if (!activeDraft) {
-      return
-    }
-
-    const point = toCanvasPoint(event)
-    const finalizedDraft =
-      activeDraft.kind === "stroke"
-        ? {
-            ...activeDraft,
-            points: [...activeDraft.points, point],
-          }
-        : activeDraft
-
-    if (
-      finalizedDraft.kind === "rectangle" &&
-      (finalizedDraft.width < 0.01 || finalizedDraft.height < 0.01)
-    ) {
-      setDraftAnnotation(null)
-      draftAnnotationRef.current = null
-      rectangleOriginRef.current = null
-      return
-    }
-
-    commitDraftAnnotation(finalizedDraft)
+    handleAnnotationPointerEnd(event, pointerContext)
   }
 
-  const hasAnnotations = props.annotations.length > 0
+  const hasAnnotations =
+    props.annotations.length > 0 || (textEditor?.value.trim().length ?? 0) > 0
   const cropReady =
     cropRect !== null &&
     cropRect.width >= MIN_CROP_RECT_SIZE &&
@@ -423,7 +407,7 @@ export function ScreenshotAnnotationEditor(props: {
             icon={<DrawIcon className="h-4 w-4" />}
             label="Zeichnen"
             onClick={() => {
-              setTool("draw")
+              selectTool("draw")
             }}
           />
           <ToolButton
@@ -432,7 +416,7 @@ export function ScreenshotAnnotationEditor(props: {
             icon={<HighlightIcon className="h-4 w-4" />}
             label="Markieren"
             onClick={() => {
-              setTool("highlight")
+              selectTool("highlight")
             }}
           />
           <ToolButton
@@ -441,7 +425,16 @@ export function ScreenshotAnnotationEditor(props: {
             icon={<RectangleIcon className="h-4 w-4" />}
             label="Rechteck"
             onClick={() => {
-              setTool("rectangle")
+              selectTool("rectangle")
+            }}
+          />
+          <ToolButton
+            active={tool === "text"}
+            disabled={props.disabled}
+            icon={<TextIcon className="h-4 w-4" />}
+            label="Text"
+            onClick={() => {
+              selectTool("text")
             }}
           />
           <div className="flex items-center gap-2">
@@ -453,7 +446,14 @@ export function ScreenshotAnnotationEditor(props: {
                 key={option.value}
                 label={option.label}
                 onClick={() => {
-                  setColor(option.value)
+                  applyColor(option.value)
+                }}
+                onMouseDown={(event) => {
+                  if (textEditorRef.current) {
+                    event.preventDefault()
+                  }
+
+                  applyColor(option.value)
                 }}
               />
             ))}
@@ -476,7 +476,29 @@ export function ScreenshotAnnotationEditor(props: {
               className="gap-2"
               disabled={props.disabled || !hasAnnotations}
               onClick={() => {
-                props.onChange(props.annotations.slice(0, -1))
+                if (undoConsumedRef.current) {
+                  undoConsumedRef.current = false
+                  return
+                }
+
+                replaceAnnotations(annotationsRef.current.slice(0, -1))
+              }}
+              onMouseDown={(event) => {
+                const current = textEditorRef.current
+                if (event.button !== 0 || !current) {
+                  return
+                }
+
+                event.preventDefault()
+                cancelTextEditor()
+                if (current.value.trim().length === 0) {
+                  return
+                }
+
+                undoConsumedRef.current = true
+                window.setTimeout(() => {
+                  undoConsumedRef.current = false
+                }, 0)
               }}
               size="icon"
               type="button"
@@ -488,8 +510,10 @@ export function ScreenshotAnnotationEditor(props: {
               className="gap-2"
               disabled={props.disabled || !hasAnnotations}
               onClick={() => {
-                props.onChange([])
+                cancelTextEditor()
                 setDraftAnnotation(null)
+                draftAnnotationRef.current = null
+                replaceAnnotations([])
               }}
               size="icon"
               type="button"
@@ -503,36 +527,251 @@ export function ScreenshotAnnotationEditor(props: {
 
       <div className="min-h-0 overflow-auto" ref={containerRef}>
         <div className="flex h-full min-h-full w-full items-center justify-center">
-          <canvas
-            aria-label="Screenshot-Bearbeitung"
-            className={cn(
-              "block rounded-xl bg-white shadow-sm",
-              props.disabled ? "cursor-default" : "cursor-crosshair"
-            )}
-            onPointerCancel={handlePointerEnd}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerEnd}
-            ref={canvasRef}
+          <div
+            className="relative"
             style={{
-              touchAction: "none",
+              height: displayHeight,
+              width: displayWidth,
             }}
-          />
+          >
+            <canvas
+              aria-label="Screenshot-Bearbeitung"
+              className={cn(
+                "block rounded-xl bg-white shadow-sm",
+                annotationCanvasCursor({
+                  disabled: props.disabled,
+                  isCropping,
+                  tool,
+                })
+              )}
+              onPointerCancel={handlePointerEnd}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerEnd}
+              ref={canvasRef}
+              style={{
+                touchAction: "none",
+              }}
+            />
+            {textEditor ? (
+              <ScreenshotTextInput
+                color={textEditor.color}
+                displayHeight={displayHeight}
+                displayWidth={displayWidth}
+                onBlur={(sessionId) => {
+                  if (textEditorRef.current?.sessionId !== sessionId) {
+                    return
+                  }
+
+                  commitTextEditor()
+                }}
+                onCancel={cancelTextEditor}
+                onChange={(value) => {
+                  const current = textEditorRef.current
+                  if (!current) {
+                    return
+                  }
+
+                  const next = { ...current, value }
+                  textEditorRef.current = next
+                  setTextEditor(next)
+                }}
+                onCommit={commitTextEditor}
+                sessionId={textEditor.sessionId}
+                value={textEditor.value}
+                x={textEditor.x}
+                y={textEditor.y}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
   )
+}
 
-  function toCanvasPoint(event: ReactPointerEvent<HTMLCanvasElement>): {
-    x: number
-    y: number
-  } {
-    const rect = event.currentTarget.getBoundingClientRect()
-    return clampAnnotationPoint({
-      x: (event.clientX - rect.left) / rect.width,
-      y: (event.clientY - rect.top) / rect.height,
-    })
+type AnnotationPointerContext = {
+  color: ScreenshotAnnotationColor
+  commitDraftAnnotation: (annotation: ScreenshotAnnotation | null) => void
+  cropOriginRef: { current: { x: number; y: number } | null }
+  cropRectRef: { current: ScreenshotCropRect | null }
+  disabled: boolean
+  draftAnnotation: ScreenshotAnnotation | null
+  draftAnnotationRef: { current: ScreenshotAnnotation | null }
+  isCropping: boolean
+  loadedImage: HTMLImageElement | null
+  openTextEditor: (point: { x: number; y: number }) => void
+  rectangleOriginRef: { current: { x: number; y: number } | null }
+  setCropRect: (rect: ScreenshotCropRect | null) => void
+  setDraftAnnotation: (annotation: ScreenshotAnnotation | null) => void
+  tool: AnnotationTool
+}
+
+function toCanvasPoint(event: ReactPointerEvent<HTMLCanvasElement>): {
+  x: number
+  y: number
+} {
+  const rect = event.currentTarget.getBoundingClientRect()
+  return clampAnnotationPoint({
+    x: (event.clientX - rect.left) / rect.width,
+    y: (event.clientY - rect.top) / rect.height,
+  })
+}
+
+function handleAnnotationPointerDown(
+  event: ReactPointerEvent<HTMLCanvasElement>,
+  input: AnnotationPointerContext
+): void {
+  if (input.disabled || !input.loadedImage || event.button !== 0) {
+    return
   }
+
+  const point = toCanvasPoint(event)
+
+  if (!input.isCropping && input.tool === "text") {
+    // Keep the caret in the new field. The browser would otherwise
+    // blur it while this pointer gesture is still finishing.
+    event.preventDefault()
+    input.openTextEditor(point)
+    return
+  }
+
+  event.currentTarget.setPointerCapture(event.pointerId)
+
+  if (input.isCropping) {
+    input.cropOriginRef.current = point
+    const nextRect = { x: point.x, y: point.y, width: 0, height: 0 }
+    input.setCropRect(nextRect)
+    input.cropRectRef.current = nextRect
+    return
+  }
+
+  if (input.tool === "rectangle") {
+    input.rectangleOriginRef.current = point
+    input.setDraftAnnotation({
+      kind: "rectangle",
+      color: input.color,
+      x: point.x,
+      y: point.y,
+      width: 0,
+      height: 0,
+    })
+    return
+  }
+
+  if (input.tool !== "draw" && input.tool !== "highlight") {
+    return
+  }
+
+  input.setDraftAnnotation({
+    color: input.color,
+    kind: "stroke",
+    points: [point],
+    tool: input.tool,
+  })
+}
+
+function handleAnnotationPointerMove(
+  event: ReactPointerEvent<HTMLCanvasElement>,
+  input: AnnotationPointerContext
+): void {
+  if (!input.loadedImage) {
+    return
+  }
+
+  if (input.isCropping) {
+    const origin = input.cropOriginRef.current
+    const activeCrop = input.cropRectRef.current
+    if (!(origin && activeCrop)) {
+      return
+    }
+
+    const point = toCanvasPoint(event)
+    const nextRect = {
+      x: Math.min(origin.x, point.x),
+      y: Math.min(origin.y, point.y),
+      width: Math.abs(point.x - origin.x),
+      height: Math.abs(point.y - origin.y),
+    }
+    input.setCropRect(nextRect)
+    input.cropRectRef.current = nextRect
+    return
+  }
+
+  if (!input.draftAnnotation) {
+    return
+  }
+
+  const point = toCanvasPoint(event)
+  if (input.draftAnnotation.kind === "rectangle") {
+    const origin = input.rectangleOriginRef.current ?? {
+      x: input.draftAnnotation.x,
+      y: input.draftAnnotation.y,
+    }
+    input.setDraftAnnotation({
+      color: input.draftAnnotation.color,
+      kind: "rectangle",
+      x: Math.min(origin.x, point.x),
+      y: Math.min(origin.y, point.y),
+      width: Math.abs(point.x - origin.x),
+      height: Math.abs(point.y - origin.y),
+    })
+    return
+  }
+
+  if (input.draftAnnotation.kind !== "stroke") {
+    return
+  }
+
+  input.setDraftAnnotation({
+    ...input.draftAnnotation,
+    points: [...input.draftAnnotation.points, point],
+  })
+}
+
+function handleAnnotationPointerEnd(
+  event: ReactPointerEvent<HTMLCanvasElement>,
+  input: AnnotationPointerContext
+): void {
+  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  if (input.isCropping) {
+    input.cropOriginRef.current = null
+    const activeCrop = input.cropRectRef.current
+    if (activeCrop && (activeCrop.width < 0.005 || activeCrop.height < 0.005)) {
+      input.setCropRect(null)
+      input.cropRectRef.current = null
+    }
+    return
+  }
+
+  const activeDraft = input.draftAnnotationRef.current
+  if (!activeDraft || activeDraft.kind === "text") {
+    return
+  }
+
+  const point = toCanvasPoint(event)
+  const finalizedDraft =
+    activeDraft.kind === "stroke"
+      ? {
+          ...activeDraft,
+          points: [...activeDraft.points, point],
+        }
+      : activeDraft
+
+  if (
+    finalizedDraft.kind === "rectangle" &&
+    (finalizedDraft.width < 0.01 || finalizedDraft.height < 0.01)
+  ) {
+    input.setDraftAnnotation(null)
+    input.draftAnnotationRef.current = null
+    input.rectangleOriginRef.current = null
+    return
+  }
+
+  input.commitDraftAnnotation(finalizedDraft)
 }
 
 function drawCropOverlay(input: {
@@ -559,6 +798,121 @@ function drawCropOverlay(input: {
   context.lineWidth = 2
   context.strokeRect(rx, ry, rw, rh)
   context.restore()
+}
+
+function annotationCanvasCursor(input: {
+  disabled: boolean
+  isCropping: boolean
+  tool: AnnotationTool
+}): string {
+  if (input.disabled) {
+    return "cursor-default"
+  }
+
+  if (input.tool === "text" && !input.isCropping) {
+    return "cursor-text"
+  }
+
+  return "cursor-crosshair"
+}
+
+function resizeScreenshotTextArea(element: HTMLTextAreaElement): void {
+  element.style.height = "0px"
+  element.style.height = `${element.scrollHeight}px`
+}
+
+function ScreenshotTextInput(props: {
+  color: ScreenshotAnnotationColor
+  displayHeight: number
+  displayWidth: number
+  onBlur: (sessionId: number) => void
+  onCancel: () => void
+  onChange: (value: string) => void
+  onCommit: () => void
+  sessionId: number
+  value: string
+  x: number
+  y: number
+}): React.JSX.Element {
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+  const frame = getScreenshotTextFrame({
+    height: props.displayHeight,
+    width: props.displayWidth,
+    x: props.x,
+    y: props.y,
+  })
+
+  useEffect(() => {
+    const element = inputRef.current
+    if (!element || props.sessionId < 1) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      element.focus()
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [props.sessionId])
+
+  // Measuring the textarea depends on layout, not on values read inside the effect.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resize when the note or frame changes
+  useEffect(() => {
+    if (!inputRef.current) {
+      return
+    }
+
+    resizeScreenshotTextArea(inputRef.current)
+  }, [frame.lineHeight, frame.maxWidth, props.value])
+
+  return (
+    <textarea
+      aria-label="Hinweis auf dem Screenshot"
+      className="absolute z-10 m-0 resize-none overflow-hidden border-0 bg-transparent p-0 font-semibold outline-none placeholder:text-current placeholder:opacity-50"
+      key={props.sessionId}
+      maxLength={screenshotTextMaxLength}
+      onBlur={() => {
+        props.onBlur(props.sessionId)
+      }}
+      onChange={(event) => {
+        props.onChange(event.currentTarget.value)
+        resizeScreenshotTextArea(event.currentTarget)
+      }}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing || event.key === "Process") {
+          return
+        }
+
+        if (event.key === "Escape") {
+          event.preventDefault()
+          props.onCancel()
+          return
+        }
+
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault()
+          props.onCommit()
+        }
+      }}
+      placeholder="Hinweis…"
+      ref={inputRef}
+      spellCheck={false}
+      style={{
+        caretColor: props.color,
+        color: props.color,
+        fontFamily: screenshotTextFontFamily,
+        fontSize: `${frame.fontSize}px`,
+        fontWeight: 600,
+        left: frame.left,
+        lineHeight: `${frame.lineHeight}px`,
+        top: frame.top,
+        width: frame.maxWidth,
+      }}
+      value={props.value}
+    />
+  )
 }
 
 function ToolButton(props: {
@@ -592,6 +946,7 @@ function ColorButton(props: {
   disabled: boolean
   label: string
   onClick: () => void
+  onMouseDown: (event: React.MouseEvent<HTMLButtonElement>) => void
 }): React.JSX.Element {
   return (
     <button
@@ -602,6 +957,13 @@ function ColorButton(props: {
       )}
       disabled={props.disabled}
       onClick={props.onClick}
+      onMouseDown={(event) => {
+        if (event.button !== 0) {
+          return
+        }
+
+        props.onMouseDown(event)
+      }}
       style={{
         backgroundColor: props.color,
       }}

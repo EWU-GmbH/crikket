@@ -29,9 +29,21 @@ export interface ScreenshotRectangleAnnotation {
   color: ScreenshotAnnotationColor
 }
 
+export interface ScreenshotTextAnnotation {
+  kind: "text"
+  x: number
+  y: number
+  text: string
+  color: ScreenshotAnnotationColor
+}
+
 export type ScreenshotAnnotation =
   | ScreenshotStrokeAnnotation
   | ScreenshotRectangleAnnotation
+  | ScreenshotTextAnnotation
+
+export const screenshotTextFontFamily = "ui-sans-serif, system-ui, sans-serif"
+export const screenshotTextMaxLength = 500
 
 /** Normalized (0–1) crop rectangle relative to the full screenshot. */
 export interface ScreenshotCropRect {
@@ -159,24 +171,95 @@ export function clampAnnotationPoint(
   }
 }
 
+export function getScreenshotTextStyle(
+  width: number,
+  height: number
+): { font: string; fontSize: number; lineHeight: number } {
+  const fontSize = Math.max(16, Math.round(Math.min(width, height) * 0.042))
+  const lineHeight = Math.round(fontSize * 1.25)
+
+  return {
+    font: `600 ${fontSize}px ${screenshotTextFontFamily}`,
+    fontSize,
+    lineHeight,
+  }
+}
+
+export function getScreenshotTextFrame(input: {
+  height: number
+  width: number
+  x: number
+  y: number
+}): {
+  font: string
+  fontSize: number
+  left: number
+  lineHeight: number
+  maxWidth: number
+  top: number
+} {
+  const style = getScreenshotTextStyle(input.width, input.height)
+  const edge = screenshotTextEdgePadding(input.width, input.height)
+  const left = input.x * input.width
+  const top = input.y * input.height
+
+  return {
+    ...style,
+    left,
+    maxWidth: Math.max(style.fontSize * 2, input.width - left - edge),
+    top,
+  }
+}
+
+export function clampScreenshotTextOrigin(input: {
+  height: number
+  point: ScreenshotAnnotationPoint
+  width: number
+}): ScreenshotAnnotationPoint {
+  const style = getScreenshotTextStyle(input.width, input.height)
+  const edge = screenshotTextEdgePadding(input.width, input.height)
+  const minBox = style.fontSize * 4
+  const maxX = Math.max(0, (input.width - minBox - edge) / input.width)
+  const maxY = Math.max(0, (input.height - style.lineHeight) / input.height)
+
+  return clampAnnotationPoint({
+    x: Math.min(input.point.x, maxX),
+    y: Math.min(input.point.y, maxY),
+  })
+}
+
 function drawAnnotation(input: {
   annotation: ScreenshotAnnotation
   context: CanvasRenderingContext2D
   height: number
   width: number
 }): void {
-  if (input.annotation.kind === "rectangle") {
-    drawRectangle({
-      ...input,
-      annotation: input.annotation,
-    })
-    return
+  switch (input.annotation.kind) {
+    case "rectangle":
+      drawRectangle({
+        ...input,
+        annotation: input.annotation,
+      })
+      return
+    case "stroke":
+      drawStroke({
+        ...input,
+        annotation: input.annotation,
+      })
+      return
+    case "text":
+      drawText({
+        ...input,
+        annotation: input.annotation,
+      })
+      return
+    default: {
+      const unreachable: never = input.annotation
+      throw new Error(
+        `Unknown screenshot annotation: ${JSON.stringify(unreachable)}`
+      )
+    }
   }
-
-  drawStroke({
-    ...input,
-    annotation: input.annotation,
-  })
 }
 
 function drawStroke(input: {
@@ -241,6 +324,161 @@ function drawRectangle(input: {
   context.fillRect(x, y, rectangleWidth, rectangleHeight)
   context.strokeRect(x, y, rectangleWidth, rectangleHeight)
   context.restore()
+}
+
+function drawText(input: {
+  annotation: ScreenshotTextAnnotation
+  context: CanvasRenderingContext2D
+  height: number
+  width: number
+}): void {
+  const text = input.annotation.text
+  if (text.trim().length === 0) {
+    return
+  }
+
+  const frame = getScreenshotTextFrame({
+    height: input.height,
+    width: input.width,
+    x: input.annotation.x,
+    y: input.annotation.y,
+  })
+  const { context } = input
+
+  context.save()
+  context.font = frame.font
+  context.textAlign = "left"
+  context.textBaseline = "top"
+  context.fillStyle = input.annotation.color
+
+  const lines = wrapScreenshotText(context, text, frame.maxWidth)
+  for (const [index, line] of lines.entries()) {
+    if (line.length === 0) {
+      continue
+    }
+
+    context.fillText(line, frame.left, frame.top + index * frame.lineHeight)
+  }
+
+  context.restore()
+}
+
+const screenshotTextWordSplitPattern = /(\s+)/u
+const screenshotTextTrailingSpacePattern = /\s+$/u
+const screenshotTextOnlySpacePattern = /^\s+$/u
+
+function wrapScreenshotText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  const lines: string[] = []
+
+  for (const paragraph of text.split("\n")) {
+    lines.push(...wrapScreenshotParagraph(context, paragraph, maxWidth))
+  }
+
+  return lines
+}
+
+function wrapScreenshotParagraph(
+  context: CanvasRenderingContext2D,
+  paragraph: string,
+  maxWidth: number
+): string[] {
+  if (paragraph.length === 0) {
+    return [""]
+  }
+
+  const lines: string[] = []
+  let current = ""
+  for (const word of paragraph.split(screenshotTextWordSplitPattern)) {
+    if (word.length === 0) {
+      continue
+    }
+
+    current = appendScreenshotWord({
+      context,
+      current,
+      lines,
+      maxWidth,
+      word,
+    })
+  }
+
+  lines.push(current.replace(screenshotTextTrailingSpacePattern, ""))
+  return lines
+}
+
+function appendScreenshotWord(input: {
+  context: CanvasRenderingContext2D
+  current: string
+  lines: string[]
+  maxWidth: number
+  word: string
+}): string {
+  const candidate =
+    input.current.length === 0 ? input.word : `${input.current}${input.word}`
+  if (fitsScreenshotText(input.context, candidate, input.maxWidth)) {
+    return candidate
+  }
+
+  if (input.current.length > 0) {
+    input.lines.push(
+      input.current.replace(screenshotTextTrailingSpacePattern, "")
+    )
+  }
+
+  if (screenshotTextOnlySpacePattern.test(input.word)) {
+    return ""
+  }
+
+  if (fitsScreenshotText(input.context, input.word, input.maxWidth)) {
+    return input.word
+  }
+
+  return pushScreenshotTextChunks(
+    input.context,
+    input.word,
+    input.maxWidth,
+    input.lines
+  )
+}
+
+function pushScreenshotTextChunks(
+  context: CanvasRenderingContext2D,
+  word: string,
+  maxWidth: number,
+  lines: string[]
+): string {
+  let chunk = ""
+  for (const char of word) {
+    const nextChunk = `${chunk}${char}`
+    if (
+      fitsScreenshotText(context, nextChunk, maxWidth) ||
+      chunk.length === 0
+    ) {
+      chunk = nextChunk
+      continue
+    }
+
+    lines.push(chunk)
+    chunk = char
+  }
+
+  return chunk
+}
+
+function fitsScreenshotText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): boolean {
+  return context.measureText(text).width <= maxWidth
+}
+
+function screenshotTextEdgePadding(width: number, height: number): number {
+  return Math.max(8, Math.round(Math.min(width, height) * 0.01))
 }
 
 function clampUnit(value: number): number {
