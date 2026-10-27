@@ -1,5 +1,6 @@
 "use client"
 
+import { authClient } from "@crikket/auth/client"
 import {
   BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
@@ -106,7 +107,9 @@ function renderBugReportLoadingState() {
   )
 }
 
-function renderBugReportMissingState() {
+function renderBugReportMissingState(input: { id: string; signedIn: boolean }) {
+  const loginHref = `/login?callbackURL=${encodeURIComponent(`/s/${input.id}`)}`
+
   return (
     <div className="flex h-screen items-center justify-center bg-background p-4">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -116,10 +119,22 @@ function renderBugReportMissingState() {
           <p className="text-muted-foreground text-sm">
             This share link is invalid or the report was removed.
           </p>
+          {input.signedIn ? null : (
+            <p className="mt-2 text-muted-foreground text-sm">
+              Ist das Ihre Meldung? Melden Sie sich mit der E-Mail-Adresse an,
+              mit der Sie sie eingereicht haben.
+            </p>
+          )}
         </div>
-        <Link href="/">
-          <Button variant="outline">Back to dashboard</Button>
-        </Link>
+        {input.signedIn ? (
+          <Link href="/">
+            <Button variant="outline">Back to dashboard</Button>
+          </Link>
+        ) : (
+          <Link href={loginHref}>
+            <Button>Anmelden</Button>
+          </Link>
+        )}
       </div>
     </div>
   )
@@ -369,6 +384,7 @@ function renderBugReportLoadedView(input: {
 }
 
 export function BugReportView({ id }: BugReportViewProps) {
+  const { data: sessionData } = authClient.useSession()
   const { data, isLoading, error, refetch } = useQuery(
     orpc.bugReport.getById.queryOptions({
       input: { id },
@@ -563,7 +579,10 @@ export function BugReportView({ id }: BugReportViewProps) {
   }
 
   if (error || !data) {
-    return renderBugReportMissingState()
+    return renderBugReportMissingState({
+      id,
+      signedIn: Boolean(sessionData?.user),
+    })
   }
 
   const sidebarProps = {

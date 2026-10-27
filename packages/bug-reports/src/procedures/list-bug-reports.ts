@@ -16,7 +16,19 @@ import {
   buildPaginationMeta,
   type PaginatedResult,
 } from "@crikket/shared/lib/server/pagination"
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
+import { ORPCError } from "@orpc/server"
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm"
 import { z } from "zod"
 import { isExpiringSignedUrl, resolveCaptureUrl } from "../lib/storage"
 import {
@@ -336,6 +348,79 @@ export const listBugReports = protectedProcedure
       }
     }
   )
+
+const MY_REPORTED_LIMIT = 50
+
+export interface MyReportedBugReportItem {
+  id: string
+  title: string
+  status: (typeof statusValues)[number]
+  organizationName: string
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Reports the signed-in user submitted to organizations other than the active
+ * one (those already appear in the main list). Reporters are often not members
+ * of the organization they reported to, so membership is not required here.
+ */
+export const listMyReportedBugReports = protectedProcedure.handler(
+  async ({ context }): Promise<{ items: MyReportedBugReportItem[] }> => {
+    const viewer = context.session?.user
+    if (!viewer) {
+      throw new ORPCError("UNAUTHORIZED")
+    }
+
+    const normalizedEmail = viewer.email.trim().toLowerCase()
+    const reporterMatch =
+      viewer.emailVerified && normalizedEmail.length > 0
+        ? or(
+            eq(bugReport.reporterId, viewer.id),
+            sql`lower(trim(${bugReport.reporterEmail})) = ${normalizedEmail}`
+          )
+        : eq(bugReport.reporterId, viewer.id)
+
+    const activeOrgId = context.session?.session.activeOrganizationId
+    const filters = [
+      reporterMatch,
+      eq(
+        bugReport.submissionStatus,
+        BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
+      ),
+    ]
+    if (activeOrgId) {
+      filters.push(ne(bugReport.organizationId, activeOrgId))
+    }
+
+    const reports = await db.query.bugReport.findMany({
+      where: and(...filters),
+      orderBy: [desc(bugReport.createdAt)],
+      limit: MY_REPORTED_LIMIT,
+      columns: {
+        id: true,
+        title: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      with: {
+        organization: { columns: { name: true } },
+      },
+    })
+
+    return {
+      items: reports.map((report) => ({
+        id: report.id,
+        title: report.title || "Untitled Bug Report",
+        status: isStatus(report.status) ? report.status : "open",
+        organizationName: report.organization.name,
+        createdAt: report.createdAt.toISOString(),
+        updatedAt: report.updatedAt.toISOString(),
+      })),
+    }
+  }
+)
 
 export const getBugReportDashboardStats = protectedProcedure.handler(
   async ({ context }): Promise<BugReportDashboardStats> => {

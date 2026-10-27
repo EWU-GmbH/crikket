@@ -58,6 +58,8 @@ export const getBugReportById = o
     const visibility = assertVisibilityAccess({
       apiTokenOrganizationId: context.apiToken?.organizationId,
       organizationId: report.organizationId,
+      reporterEmail: report.reporterEmail,
+      reporterId: report.reporterId,
       session: context.session,
       visibility: report.visibility,
     })
