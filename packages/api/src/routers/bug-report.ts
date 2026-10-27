@@ -1,11 +1,11 @@
 import {
-  deleteBugReport,
-  deleteBugReportsBulk,
-} from "@crikket/bug-reports/procedures/delete-bug-reports"
-import {
   addBugReportComment,
   listBugReportComments,
 } from "@crikket/bug-reports/procedures/bug-report-comments"
+import {
+  deleteBugReport,
+  deleteBugReportsBulk,
+} from "@crikket/bug-reports/procedures/delete-bug-reports"
 import { getBugReportById } from "@crikket/bug-reports/procedures/get-bug-report"
 import {
   getBugReportDebuggerEvents,
@@ -15,6 +15,7 @@ import {
 import {
   getBugReportDashboardStats,
   listBugReports,
+  listMyReportedBugReports,
 } from "@crikket/bug-reports/procedures/list-bug-reports"
 import {
   updateBugReport,
@@ -33,6 +34,7 @@ import {
  */
 export const bugReportRouter = {
   list: listBugReports,
+  listMine: listMyReportedBugReports,
   createUpload: createBugReportUpload,
   finalizeUpload: finalizeBugReportUploadProcedure,
   retryDebuggerIngestion: retryBugReportDebuggerIngestionProcedure,

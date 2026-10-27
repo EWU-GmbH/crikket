@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { BugReportsList } from "./_components/bug-reports/bug-reports-list"
+import { MyReportedBugReports } from "./_components/bug-reports/my-reported-bug-reports"
 
 const META = {
   title: "Bug Reports",
@@ -21,6 +22,7 @@ export default function DashboardPage() {
           <p className="mt-1 text-muted-foreground">{META.description}</p>
         </div>
       </div>
+      <MyReportedBugReports />
       <BugReportsList />
     </div>
   )

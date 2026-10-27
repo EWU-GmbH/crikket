@@ -12,7 +12,10 @@ import {
 import { ORPCError } from "@orpc/server"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
-import { shouldExposeBugReportToViewer } from "./read-access-policy"
+import {
+  isBugReportReporter,
+  shouldExposeBugReportToViewer,
+} from "./read-access-policy"
 
 const attachmentTypes = ["video", "screenshot"] as const
 export const visibilityValues = Object.values(
@@ -121,10 +124,24 @@ export function canAccessPrivateReport(input: {
   )
 }
 
+export function isSessionReporter(input: {
+  reporterEmail: string | null
+  reporterId: string | null
+  session?: SessionContext
+}): boolean {
+  return isBugReportReporter({
+    viewer: input.session?.user,
+    reporterEmail: input.reporterEmail,
+    reporterId: input.reporterId,
+  })
+}
+
 export function assertVisibilityAccess(input: {
   apiTokenOrganizationId?: string | null
   visibility: unknown
   organizationId: string
+  reporterEmail: string | null
+  reporterId: string | null
   session?: SessionContext
 }): "public" | "private" {
   const visibility = isVisibility(input.visibility)
@@ -134,7 +151,7 @@ export function assertVisibilityAccess(input: {
     return visibility
   }
 
-  if (canAccessPrivateReport(input)) {
+  if (canAccessPrivateReport(input) || isSessionReporter(input)) {
     return visibility
   }
 
@@ -206,6 +223,8 @@ export async function assertBugReportAccessById(input: {
     columns: {
       id: true,
       organizationId: true,
+      reporterEmail: true,
+      reporterId: true,
       submissionStatus: true,
       visibility: true,
     },
@@ -218,6 +237,8 @@ export async function assertBugReportAccessById(input: {
   const visibility = assertVisibilityAccess({
     apiTokenOrganizationId: input.apiTokenOrganizationId,
     organizationId: report.organizationId,
+    reporterEmail: report.reporterEmail,
+    reporterId: report.reporterId,
     session: input.session,
     visibility: report.visibility,
   })
