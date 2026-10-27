@@ -14,6 +14,7 @@ import {
 } from "@crikket/ui/components/ui/resizable"
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query"
 import { AlertCircle, Edit, Eye, EyeOff, Loader2 } from "lucide-react"
+import type { Route } from "next"
 import Link from "next/link"
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -108,7 +109,8 @@ function renderBugReportLoadingState() {
 }
 
 function renderBugReportMissingState(input: { id: string; signedIn: boolean }) {
-  const loginHref = `/login?callbackURL=${encodeURIComponent(`/s/${input.id}`)}`
+  const loginHref =
+    `/login?callbackURL=${encodeURIComponent(`/s/${input.id}`)}` as Route
 
   return (
     <div className="flex h-screen items-center justify-center bg-background p-4">
