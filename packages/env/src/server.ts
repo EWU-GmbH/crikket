@@ -42,6 +42,9 @@ export const env = createEnv({
     RESEND_FROM_EMAIL: z.email().optional(),
     // Reply-To for reporter-facing emails (follow-up and resolution).
     CRIKKET_SUPPORT_REPLY_TO: z.email().optional(),
+    // Per-org Jira mailbox routing for new widget bug reports:
+    // {"<organizationId>":"eut@example.atlassian.net"}
+    CRIKKET_JIRA_MAIL_ORG_JSON: z.string().min(2).optional(),
     ENABLE_PAYMENTS: z
       .enum(["true", "false"])
       .default("true")

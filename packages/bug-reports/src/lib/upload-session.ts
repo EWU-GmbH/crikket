@@ -37,6 +37,7 @@ import {
   processBugReportIngestionJob,
   queueBugReportIngestionJob,
 } from "./ingestion-jobs"
+import { notifyJiraAboutNewBugInBackground } from "./notifications/notify-jira-bug"
 import { notifyOwnersAboutNewSubmissionInBackground } from "./notifications/notify-new-report"
 import { getStorageProvider } from "./storage"
 import {
@@ -493,6 +494,28 @@ export async function finalizeBugReportUpload(input: {
       excludeUserId: uploadSession.reporterId,
     },
     `new bug-report ${uploadSession.id}`
+  )
+
+  notifyJiraAboutNewBugInBackground(
+    {
+      organizationId: uploadSession.organizationId,
+      title: uploadSession.title || `Crikket bug ${uploadSession.id}`,
+      description: uploadSession.description,
+      pageUrl: uploadSession.url,
+      priority: uploadSession.priority,
+      reporterEmail: uploadSession.reporterEmail,
+      reportId: uploadSession.id,
+      captureKey: uploadSession.captureKey,
+      captureContentType,
+      debuggerKey: uploadSession.debuggerKey,
+      debuggerContentEncoding: input.input.debuggerContentEncoding ?? null,
+      deviceInfo: (uploadSession.deviceInfo as {
+        browser?: string
+        os?: string
+        viewport?: string
+      } | null) ?? null,
+    },
+    `jira bug-report ${uploadSession.id}`
   )
 
   return {
