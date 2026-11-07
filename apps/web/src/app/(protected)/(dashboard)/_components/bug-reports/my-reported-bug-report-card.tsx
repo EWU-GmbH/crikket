@@ -54,7 +54,13 @@ export function MyReportedBugReportCard({
           </div>
 
           <div className="pointer-events-none absolute bottom-2 left-2 z-20">
-            <MediaTypeBadge attachmentType={report.attachmentType} />
+            {report.attachmentType ? (
+              <MediaTypeBadge attachmentType={report.attachmentType} />
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-black/75 px-2 py-1 font-medium text-[11px] text-white backdrop-blur-sm">
+                Ohne Anhang
+              </span>
+            )}
           </div>
 
           {report.attachmentType === "video" && report.duration ? (

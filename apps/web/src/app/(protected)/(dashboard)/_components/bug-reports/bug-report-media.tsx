@@ -36,11 +36,8 @@ export function MediaTypeBadge({
     )
   }
 
-  return (
-    <Badge className="border-white/15 bg-black/75 text-white backdrop-blur-sm hover:bg-black/75">
-      Ohne Anhang
-    </Badge>
-  )
+  // Keep the org grid visually unchanged when no attachment type is set.
+  return null
 }
 
 export function MediaPreview({
