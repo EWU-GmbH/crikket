@@ -30,6 +30,8 @@ import {
   sql,
 } from "drizzle-orm"
 import { z } from "zod"
+import type { MyReportedBugReportItem } from "../lib/my-reported-list-item"
+import { mapMyReportedBugReportItem } from "../lib/my-reported-list-item"
 import { isExpiringSignedUrl, resolveCaptureUrl } from "../lib/storage"
 import {
   formatDurationMs,
@@ -41,6 +43,8 @@ import {
 } from "../lib/utils"
 import { protectedProcedure } from "./context"
 import { requireBugReportsReadAccess } from "./helpers"
+
+export type { MyReportedBugReportItem } from "../lib/my-reported-list-item"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -351,19 +355,11 @@ export const listBugReports = protectedProcedure
 
 const MY_REPORTED_LIMIT = 50
 
-export interface MyReportedBugReportItem {
-  id: string
-  title: string
-  status: (typeof statusValues)[number]
-  organizationName: string
-  createdAt: string
-  updatedAt: string
-}
-
 /**
  * Reports the signed-in user submitted to organizations other than the active
  * one (those already appear in the main list). Reporters are often not members
  * of the organization they reported to, so membership is not required here.
+ * Payload stays reporter-scoped and omits emails / mutation fields.
  */
 export const listMyReportedBugReports = protectedProcedure.handler(
   async ({ context }): Promise<{ items: MyReportedBugReportItem[] }> => {
@@ -400,7 +396,12 @@ export const listMyReportedBugReports = protectedProcedure.handler(
       columns: {
         id: true,
         title: true,
+        description: true,
+        metadata: true,
+        captureKey: true,
+        attachmentType: true,
         status: true,
+        priority: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -409,16 +410,16 @@ export const listMyReportedBugReports = protectedProcedure.handler(
       },
     })
 
-    return {
-      items: reports.map((report) => ({
-        id: report.id,
-        title: report.title || "Untitled Bug Report",
-        status: isStatus(report.status) ? report.status : "open",
-        organizationName: report.organization.name,
-        createdAt: report.createdAt.toISOString(),
-        updatedAt: report.updatedAt.toISOString(),
-      })),
-    }
+    const items = await Promise.all(
+      reports.map((report) =>
+        mapMyReportedBugReportItem({
+          report,
+          resolveCaptureUrl,
+        })
+      )
+    )
+
+    return { items }
   }
 )
 
