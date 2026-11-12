@@ -1,9 +1,9 @@
 import { env } from "@crikket/env/server"
+import type { BugReportCommentPurpose } from "@crikket/shared/constants/bug-report"
 import { render } from "@react-email/render"
 import { Resend } from "resend"
+import { buildReporterFollowUpCopy } from "./reporter-follow-up-copy"
 import { ReporterFollowUpEmailTemplate } from "./templates/reporter-follow-up-template"
-
-const MAX_SUBJECT_TITLE_LENGTH = 140
 
 const resendClient = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 const fromEmail = env.RESEND_FROM_EMAIL
@@ -19,29 +19,14 @@ export async function sendReporterFollowUpEmail(input: {
   title: string
   message: string
   shareUrl?: string
+  purpose?: BugReportCommentPurpose
 }): Promise<void> {
-  const subjectTitle =
-    input.title.length > MAX_SUBJECT_TITLE_LENGTH
-      ? `${input.title.slice(0, MAX_SUBJECT_TITLE_LENGTH - 1)}…`
-      : input.title
-  const subject = `Rückfrage zu Ihrer Meldung: ${subjectTitle}`
-
-  const textLines = [
-    "Zu Ihrer Meldung haben wir eine Rückfrage:",
-    "",
-    input.title,
-    "",
-    input.message,
-    "",
-    "Antworten Sie gerne direkt auf diese E-Mail — wir melden uns sobald wie möglich zurück.",
-  ]
-  if (input.shareUrl) {
-    textLines.push("", `Meldung ansehen: ${input.shareUrl}`)
-  }
-  textLines.push(
-    "",
-    "Sie erhalten diese E-Mail, weil Sie diese Meldung über das Feedback-Widget eingereicht und Ihre E-Mail-Adresse angegeben haben."
-  )
+  const copy = buildReporterFollowUpCopy({
+    message: input.message,
+    purpose: input.purpose,
+    shareUrl: input.shareUrl,
+    title: input.title,
+  })
 
   if (!resendClient) {
     if (env.NODE_ENV === "production") {
@@ -63,22 +48,15 @@ export async function sendReporterFollowUpEmail(input: {
     )
   }
 
-  const html = await render(
-    ReporterFollowUpEmailTemplate({
-      title: input.title,
-      message: input.message,
-      shareUrl: input.shareUrl,
-    })
-  )
-
+  const html = await render(ReporterFollowUpEmailTemplate({ copy }))
   const replyTo = buildReplyTo()
 
   const { error } = await resendClient.emails.send({
     from: `${fromName} <${fromEmail}>`,
     to: input.to,
-    subject,
+    subject: copy.subject,
     html,
-    text: textLines.join("\n"),
+    text: copy.text,
     ...(replyTo ? { replyTo } : {}),
   })
 

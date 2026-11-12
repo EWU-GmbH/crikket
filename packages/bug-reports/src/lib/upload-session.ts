@@ -1,11 +1,11 @@
 import { db } from "@crikket/db"
-import { env } from "@crikket/env/server"
 import {
   bugReport,
   bugReportAttachment,
   bugReportUploadSession,
   bugReportUploadSessionAttachment,
 } from "@crikket/db/schema/bug-report"
+import { env } from "@crikket/env/server"
 import {
   BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
@@ -39,6 +39,7 @@ import {
 } from "./ingestion-jobs"
 import { notifyJiraAboutNewBugInBackground } from "./notifications/notify-jira-bug"
 import { notifyOwnersAboutNewSubmissionInBackground } from "./notifications/notify-new-report"
+import { notifyReporterAboutReceiptInBackground } from "./notifications/notify-receipt"
 import { getStorageProvider } from "./storage"
 import {
   buildFallbackTitle,
@@ -496,6 +497,11 @@ export async function finalizeBugReportUpload(input: {
     `new bug-report ${uploadSession.id}`
   )
 
+  notifyReporterAboutReceiptInBackground(
+    { id: uploadSession.id },
+    `receipt bug-report ${uploadSession.id}`
+  )
+
   notifyJiraAboutNewBugInBackground(
     {
       organizationId: uploadSession.organizationId,
@@ -509,11 +515,12 @@ export async function finalizeBugReportUpload(input: {
       captureContentType,
       debuggerKey: uploadSession.debuggerKey,
       debuggerContentEncoding: input.input.debuggerContentEncoding ?? null,
-      deviceInfo: (uploadSession.deviceInfo as {
-        browser?: string
-        os?: string
-        viewport?: string
-      } | null) ?? null,
+      deviceInfo:
+        (uploadSession.deviceInfo as {
+          browser?: string
+          os?: string
+          viewport?: string
+        } | null) ?? null,
     },
     `jira bug-report ${uploadSession.id}`
   )
@@ -579,6 +586,11 @@ async function finalizeAlreadyCompletedUpload(input: {
       message: "Bug report submission is still processing.",
     })
   }
+
+  notifyReporterAboutReceiptInBackground(
+    { id: existingReport.id },
+    `receipt bug-report ${existingReport.id}`
+  )
 
   return {
     debugger: createEmptyDebuggerPersistence(),

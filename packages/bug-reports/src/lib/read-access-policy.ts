@@ -1,4 +1,7 @@
-import { BUG_REPORT_SUBMISSION_STATUS_OPTIONS } from "@crikket/shared/constants/bug-report"
+import {
+  BUG_REPORT_COMMENT_KIND_OPTIONS,
+  BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+} from "@crikket/shared/constants/bug-report"
 
 export function shouldExposeBugReportToViewer(input: {
   canAccessUnready: boolean
@@ -45,4 +48,52 @@ export function isBugReportReporter(input: {
     reporterEmail.length > 0 &&
     reporterEmail === normalizeEmail(viewer.email)
   )
+}
+
+/**
+ * Share-page audience for to_reporter comments.
+ * Organization viewers are members of the report's organization (or an API
+ * token of that organization). Anonymous visitors are never included.
+ */
+export function canViewReporterFacingComments(input: {
+  isOrganizationViewer: boolean
+  reporterEmail: string | null
+  reporterId: string | null
+  viewer: ReporterViewer | null | undefined
+}): boolean {
+  if (input.isOrganizationViewer) {
+    return true
+  }
+
+  return isBugReportReporter(input)
+}
+
+export function projectReporterFacingComments<
+  T extends {
+    id: string
+    body: string
+    createdAt: string
+    kind: string
+  },
+>(input: {
+  allowed: boolean
+  comments: readonly T[]
+}): Array<{
+  id: string
+  body: string
+  createdAt: string
+}> {
+  if (!input.allowed) {
+    return []
+  }
+
+  return input.comments
+    .filter(
+      (comment) => comment.kind === BUG_REPORT_COMMENT_KIND_OPTIONS.toReporter
+    )
+    .map((comment) => ({
+      id: comment.id,
+      body: comment.body,
+      createdAt: comment.createdAt,
+    }))
 }

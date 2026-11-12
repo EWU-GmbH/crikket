@@ -2,12 +2,20 @@
 
 import {
   BUG_REPORT_COMMENT_KIND_OPTIONS,
+  BUG_REPORT_COMMENT_PURPOSE_OPTIONS,
   type BugReportCommentKind,
+  type BugReportCommentPurpose,
 } from "@crikket/shared/constants/bug-report"
 import { Button } from "@crikket/ui/components/ui/button"
 import { Textarea } from "@crikket/ui/components/ui/textarea"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Mail, MessageSquareText, StickyNote } from "lucide-react"
+import {
+  Loader2,
+  Mail,
+  Megaphone,
+  MessageSquareText,
+  StickyNote,
+} from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -63,6 +71,7 @@ export function BugReportCommunication({
     mutationFn: async (input: {
       kind: BugReportCommentKind
       notifyReporter: boolean
+      purpose?: BugReportCommentPurpose
     }) => {
       const body = message.trim()
       if (body.length === 0) {
@@ -74,6 +83,7 @@ export function BugReportCommunication({
         body,
         kind: input.kind,
         notifyReporter: input.notifyReporter,
+        ...(input.purpose ? { purpose: input.purpose } : {}),
       })
     },
     onSuccess: async () => {
@@ -133,8 +143,8 @@ export function BugReportCommunication({
         </ul>
       ) : (
         <p className="text-muted-foreground text-sm">
-          Noch keine Nachrichten. Senden Sie eine Rückfrage an den Ersteller oder
-          notieren Sie intern.
+          Noch keine Nachrichten. Senden Sie eine Rückfrage oder eine Neuigkeit
+          an den Ersteller, oder notieren Sie intern.
         </p>
       )}
 
@@ -170,6 +180,26 @@ export function BugReportCommunication({
             disabled={isSubmitting || message.trim().length === 0}
             onClick={() =>
               addCommentMutation.mutate({
+                kind: BUG_REPORT_COMMENT_KIND_OPTIONS.toReporter,
+                notifyReporter: true,
+                purpose: BUG_REPORT_COMMENT_PURPOSE_OPTIONS.info,
+              })
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isSubmitting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Megaphone className="h-4 w-4" />
+            )}
+            Neuigkeit senden
+          </Button>
+          <Button
+            disabled={isSubmitting || message.trim().length === 0}
+            onClick={() =>
+              addCommentMutation.mutate({
                 kind: BUG_REPORT_COMMENT_KIND_OPTIONS.internal,
                 notifyReporter: false,
               })
@@ -186,6 +216,10 @@ export function BugReportCommunication({
             Nur intern notieren
           </Button>
         </div>
+        <p className="text-muted-foreground text-xs">
+          Eine Rückfrage setzt offene oder in Bearbeitung befindliche Meldungen
+          auf „Rückfrage“. Eine Neuigkeit lässt den Status unverändert.
+        </p>
       </div>
     </div>
   )
