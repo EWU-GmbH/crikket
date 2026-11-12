@@ -8,9 +8,9 @@ import {
   Terminal,
 } from "lucide-react"
 import type { ReactNode } from "react"
-
-import { NetworkRequestsPanel } from "./network-requests-panel"
 import { BugReportCommunication } from "./bug-report-communication"
+import { NetworkRequestsPanel } from "./network-requests-panel"
+import { ReporterFacingComments } from "./reporter-facing-comments"
 import { TimelineList } from "./timeline-list"
 import type {
   DebuggerNetworkRequest,
@@ -184,7 +184,9 @@ export function BugReportSidebar({
                   onReportUpdated={onReportUpdated}
                 />
               </>
-            ) : null}
+            ) : (
+              <ReporterFacingComments bugReportId={bugReportId} />
+            )}
           </div>
         )}
 

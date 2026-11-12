@@ -17,3 +17,18 @@ export function getBugReportShareUrl(reportId: string): string | undefined {
 
   return `${origin}/s/${reportId}`
 }
+
+export function getReporterAccountUrls(): {
+  registerUrl?: string
+  loginUrl?: string
+} {
+  const origin = getPublicAppOrigin()
+  if (!origin) {
+    return {}
+  }
+
+  return {
+    registerUrl: `${origin}/register`,
+    loginUrl: `${origin}/login`,
+  }
+}

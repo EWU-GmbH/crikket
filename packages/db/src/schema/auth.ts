@@ -104,6 +104,9 @@ export const organization = pgTable(
     logo: text("logo"),
     createdAt: timestamp("created_at").notNull(),
     metadata: text("metadata"),
+    reporterReceiptEmailEnabled: boolean("reporter_receipt_email_enabled")
+      .default(false)
+      .notNull(),
   },
   (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)]
 )

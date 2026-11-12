@@ -27,6 +27,7 @@ export const bugReport = pgTable(
     reporterEmail: text("reporter_email"),
     kanCardPublicId: text("kan_card_public_id"),
     resolutionNotifiedAt: timestamp("resolution_notified_at"),
+    receiptNotifiedAt: timestamp("receipt_notified_at"),
     tags: text("tags").array(),
     url: text("url"),
     attachmentType: text("attachment_type"), // "video" or "screenshot"
@@ -161,9 +162,7 @@ export const bugReportComment = pgTable(
     kind: text("kind").notNull(), // to_reporter | internal
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [
-    index("bug_report_comment_bugReportId_idx").on(table.bugReportId),
-  ]
+  (table) => [index("bug_report_comment_bugReportId_idx").on(table.bugReportId)]
 )
 
 export const bugReportLog = pgTable(

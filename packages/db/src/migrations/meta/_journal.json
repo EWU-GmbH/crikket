@@ -43,6 +43,13 @@
       "when": 1785265000000,
       "tag": "0005_feature_request_comment",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794578400000,
+      "tag": "0006_reporter_receipt_email",
+      "breakpoints": true
     }
   ]
 }

@@ -1,51 +1,58 @@
 import { db } from "@crikket/db"
-import { user } from "@crikket/db/schema/auth"
+import { member, user } from "@crikket/db/schema/auth"
 import { bugReport, bugReportComment } from "@crikket/db/schema/bug-report"
+import { API_TOKEN_SCOPE_OPTIONS } from "@crikket/shared/constants/api-token"
 import {
   BUG_REPORT_COMMENT_KIND_OPTIONS,
   BUG_REPORT_COMMENT_KIND_VALUES,
-  BUG_REPORT_STATUS_OPTIONS,
+  BUG_REPORT_COMMENT_PURPOSE_OPTIONS,
   type BugReportCommentKind,
+  type BugReportCommentPurpose,
 } from "@crikket/shared/constants/bug-report"
 import { ORPCError } from "@orpc/server"
 import { and, asc, eq } from "drizzle-orm"
 import { nanoid } from "nanoid"
-import { z } from "zod"
+import {
+  addCommentInputSchema,
+  MISSING_REPORTER_EMAIL_INFO_MESSAGE,
+  MISSING_REPORTER_EMAIL_QUESTION_MESSAGE,
+  resolveCommentFollowUp,
+} from "../lib/comment-follow-up"
 import { sendReporterFollowUpEmail } from "../lib/notifications/send-reporter-follow-up-email"
 import { getBugReportShareUrl } from "../lib/notifications/share-url"
-import { bugReportIdInputSchema } from "../lib/utils"
-import { protectedProcedure } from "./context"
 import {
+  canViewReporterFacingComments,
+  projectReporterFacingComments,
+} from "../lib/read-access-policy"
+import {
+  assertBugReportAccessById,
+  bugReportIdInputSchema,
+  canAccessPrivateReport,
+  type SessionContext,
+} from "../lib/utils"
+import { o, protectedProcedure } from "./context"
+import {
+  requireApiTokenScope,
   requireBugReportsReadAccess,
   requireBugReportsWriteAccess,
 } from "./helpers"
 
-const MAX_COMMENT_BODY_LENGTH = 4000
-
-const commentBodySchema = z
-  .string()
-  .trim()
-  .min(1, "Nachricht darf nicht leer sein")
-  .max(MAX_COMMENT_BODY_LENGTH)
-
-const addCommentInputSchema = z
-  .object({
-    bugReportId: z.string().min(1),
-    body: commentBodySchema,
-    kind: z.enum(BUG_REPORT_COMMENT_KIND_VALUES),
-    notifyReporter: z.boolean().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (
-      value.kind === BUG_REPORT_COMMENT_KIND_OPTIONS.internal &&
-      value.notifyReporter
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Interne Notizen werden nicht an den Ersteller gesendet",
-      })
+function missingReporterEmailMessage(purpose: BugReportCommentPurpose): string {
+  switch (purpose) {
+    case BUG_REPORT_COMMENT_PURPOSE_OPTIONS.info:
+      return MISSING_REPORTER_EMAIL_INFO_MESSAGE
+    case BUG_REPORT_COMMENT_PURPOSE_OPTIONS.question:
+      return MISSING_REPORTER_EMAIL_QUESTION_MESSAGE
+    default: {
+      const exhaustive: never = purpose
+      return exhaustive
     }
-  })
+  }
+}
+
+function isCommentKind(value: string): value is BugReportCommentKind {
+  return (BUG_REPORT_COMMENT_KIND_VALUES as readonly string[]).includes(value)
+}
 
 async function resolveReporterEmail(input: {
   reporterEmail: string | null
@@ -67,8 +74,35 @@ async function resolveReporterEmail(input: {
   return reporter?.email?.trim() ?? null
 }
 
-function isCommentKind(value: string): value is BugReportCommentKind {
-  return (BUG_REPORT_COMMENT_KIND_VALUES as readonly string[]).includes(value)
+async function isOrganizationCommentViewer(input: {
+  apiTokenOrganizationId?: string | null
+  organizationId: string
+  session?: SessionContext
+}): Promise<boolean> {
+  if (
+    canAccessPrivateReport({
+      apiTokenOrganizationId: input.apiTokenOrganizationId,
+      organizationId: input.organizationId,
+      session: input.session,
+    })
+  ) {
+    return true
+  }
+
+  const userId = input.session?.user.id
+  if (!userId) {
+    return false
+  }
+
+  const membership = await db.query.member.findFirst({
+    where: and(
+      eq(member.organizationId, input.organizationId),
+      eq(member.userId, userId)
+    ),
+    columns: { id: true },
+  })
+
+  return Boolean(membership)
 }
 
 export const listBugReportComments = protectedProcedure
@@ -113,6 +147,81 @@ export const listBugReportComments = protectedProcedure
     }
   })
 
+/**
+ * Read-only to_reporter comments for /s/<id>.
+ * Audience: the signed-in reporter (reporter id, or verified email equal to
+ * reporterEmail) or a member of the report's organization.
+ * Anonymous visitors receive an empty list, including when the report is public.
+ * Internal comments are never returned. Author emails and organization fields
+ * are not part of the payload.
+ */
+export const listReporterFacingBugReportComments = o
+  .input(bugReportIdInputSchema)
+  .handler(async ({ context, input }) => {
+    requireApiTokenScope(
+      context.apiToken,
+      API_TOKEN_SCOPE_OPTIONS.bugReportsRead
+    )
+
+    await assertBugReportAccessById({
+      apiTokenOrganizationId: context.apiToken?.organizationId,
+      id: input.id,
+      session: context.session,
+    })
+
+    const report = await db.query.bugReport.findFirst({
+      where: eq(bugReport.id, input.id),
+      columns: {
+        organizationId: true,
+        reporterEmail: true,
+        reporterId: true,
+      },
+    })
+
+    if (!report) {
+      throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
+    }
+
+    const isOrganizationViewer = await isOrganizationCommentViewer({
+      apiTokenOrganizationId: context.apiToken?.organizationId,
+      organizationId: report.organizationId,
+      session: context.session,
+    })
+    const allowed = canViewReporterFacingComments({
+      isOrganizationViewer,
+      reporterEmail: report.reporterEmail,
+      reporterId: report.reporterId,
+      viewer: context.session?.user,
+    })
+
+    if (!allowed) {
+      return { items: [] }
+    }
+
+    const comments = await db.query.bugReportComment.findMany({
+      where: eq(bugReportComment.bugReportId, input.id),
+      columns: {
+        id: true,
+        body: true,
+        createdAt: true,
+        kind: true,
+      },
+      orderBy: [asc(bugReportComment.createdAt)],
+    })
+
+    return {
+      items: projectReporterFacingComments({
+        allowed: true,
+        comments: comments.map((comment) => ({
+          id: comment.id,
+          body: comment.body,
+          createdAt: comment.createdAt.toISOString(),
+          kind: comment.kind,
+        })),
+      }),
+    }
+  })
+
 export const addBugReportComment = protectedProcedure
   .input(addCommentInputSchema)
   .handler(async ({ context, input }) => {
@@ -137,9 +246,12 @@ export const addBugReportComment = protectedProcedure
       throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
     }
 
-    const shouldNotifyReporter =
-      input.notifyReporter === true &&
-      input.kind === BUG_REPORT_COMMENT_KIND_OPTIONS.toReporter
+    const followUp = resolveCommentFollowUp({
+      kind: input.kind,
+      notifyReporter: input.notifyReporter,
+      purpose: input.purpose,
+      status: report.status,
+    })
 
     const [inserted] = await db
       .insert(bugReportComment)
@@ -163,7 +275,7 @@ export const addBugReportComment = protectedProcedure
       })
     }
 
-    if (shouldNotifyReporter) {
+    if (followUp.notifyReporter) {
       const recipient = await resolveReporterEmail({
         reporterEmail: report.reporterEmail,
         reporterId: report.reporterId,
@@ -171,8 +283,7 @@ export const addBugReportComment = protectedProcedure
 
       if (!recipient) {
         throw new ORPCError("BAD_REQUEST", {
-          message:
-            "Keine E-Mail-Adresse des Erstellers hinterlegt — Rückfrage kann nicht gesendet werden",
+          message: missingReporterEmailMessage(followUp.purpose),
         })
       }
 
@@ -181,16 +292,13 @@ export const addBugReportComment = protectedProcedure
         title: report.title?.trim() || "Ihre Meldung",
         message: input.body,
         shareUrl: getBugReportShareUrl(report.id),
+        purpose: followUp.purpose,
       })
 
-      const shouldSetNeedsInfo =
-        report.status === BUG_REPORT_STATUS_OPTIONS.open ||
-        report.status === BUG_REPORT_STATUS_OPTIONS.inProgress
-
-      if (shouldSetNeedsInfo) {
+      if (followUp.nextStatus) {
         await db
           .update(bugReport)
-          .set({ status: BUG_REPORT_STATUS_OPTIONS.needsInfo })
+          .set({ status: followUp.nextStatus })
           .where(eq(bugReport.id, report.id))
       }
     }
@@ -220,4 +328,7 @@ export async function insertBugReportComment(input: {
   })
 }
 
-export { commentBodySchema, MAX_COMMENT_BODY_LENGTH }
+export {
+  commentBodySchema,
+  MAX_COMMENT_BODY_LENGTH,
+} from "../lib/comment-follow-up"

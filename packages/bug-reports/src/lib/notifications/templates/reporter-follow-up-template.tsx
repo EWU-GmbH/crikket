@@ -1,5 +1,9 @@
 /** @jsxImportSource react */
 import {
+  BUG_REPORT_COMMENT_PURPOSE_OPTIONS,
+  type BugReportCommentPurpose,
+} from "@crikket/shared/constants/bug-report"
+import {
   Body,
   Button,
   Container,
@@ -10,46 +14,45 @@ import {
   Section,
   Text,
 } from "@react-email/components"
+import type { ReporterFollowUpCopy } from "../reporter-follow-up-copy"
 
-type ReporterFollowUpEmailTemplateProps = {
-  title: string
-  message: string
-  shareUrl?: string
+function messageStyleFor(purpose: BugReportCommentPurpose) {
+  switch (purpose) {
+    case BUG_REPORT_COMMENT_PURPOSE_OPTIONS.question:
+      return questionMessageStyle
+    case BUG_REPORT_COMMENT_PURPOSE_OPTIONS.info:
+      return infoMessageStyle
+    default: {
+      const exhaustive: never = purpose
+      return exhaustive
+    }
+  }
 }
 
 export function ReporterFollowUpEmailTemplate({
-  title,
-  message,
-  shareUrl,
-}: ReporterFollowUpEmailTemplateProps) {
+  copy,
+}: {
+  copy: ReporterFollowUpCopy
+}) {
   return (
     <Html>
       <Head />
-      <Preview>{`Rückfrage zu Ihrer Meldung: ${title}`}</Preview>
+      <Preview>{copy.preview}</Preview>
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
           <Section style={cardStyle}>
-            <Heading style={headingStyle}>Rückfrage zu Ihrer Meldung</Heading>
-            <Text style={textStyle}>
-              Zu Ihrer Meldung haben wir eine Rückfrage:
-            </Text>
-            <Text style={titleStyle}>{title}</Text>
-            <Text style={messageStyle}>{message}</Text>
-            <Text style={textStyle}>
-              Antworten Sie gerne direkt auf diese E-Mail — wir melden uns
-              sobald wie möglich zurück.
-            </Text>
-            {shareUrl ? (
-              <Button href={shareUrl} style={buttonStyle}>
+            <Heading style={headingStyle}>{copy.heading}</Heading>
+            <Text style={textStyle}>{copy.intro}</Text>
+            <Text style={titleStyle}>{copy.title}</Text>
+            <Text style={messageStyleFor(copy.purpose)}>{copy.message}</Text>
+            <Text style={textStyle}>{copy.closing}</Text>
+            {copy.shareUrl ? (
+              <Button href={copy.shareUrl} style={buttonStyle}>
                 Meldung ansehen
               </Button>
             ) : null}
           </Section>
-          <Text style={footerStyle}>
-            Sie erhalten diese E-Mail, weil Sie diese Meldung über das
-            Feedback-Widget eingereicht und Ihre E-Mail-Adresse angegeben
-            haben.
-          </Text>
+          <Text style={footerStyle}>{copy.footer}</Text>
         </Container>
       </Body>
     </Html>
@@ -101,9 +104,20 @@ const titleStyle = {
   padding: "12px 16px",
 }
 
-const messageStyle = {
+const questionMessageStyle = {
   backgroundColor: "#fffbeb",
   border: "1px solid #fde68a",
+  borderRadius: "8px",
+  fontSize: "14px",
+  lineHeight: "22px",
+  margin: "0 0 16px",
+  padding: "12px 16px",
+  whiteSpace: "pre-wrap" as const,
+}
+
+const infoMessageStyle = {
+  backgroundColor: "#eff6ff",
+  border: "1px solid #bfdbfe",
   borderRadius: "8px",
   fontSize: "14px",
   lineHeight: "22px",

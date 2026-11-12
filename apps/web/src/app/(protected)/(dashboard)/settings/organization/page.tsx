@@ -16,6 +16,7 @@ import { client } from "@/utils/orpc"
 import { OrganizationMembersSection } from "../_components/org-members/organization-members-section"
 import { OrganizationDangerZone } from "../_components/organization-danger-zone"
 import { OrganizationSettingsForm } from "../_components/organization-settings-form"
+import { ReporterReceiptEmailSetting } from "../_components/reporter-receipt-email-setting"
 import { getRequestErrorMessage } from "../_lib/get-request-error-message"
 import { parseMembersQuery } from "../_lib/members-query"
 
@@ -130,6 +131,21 @@ export default async function OrganizationSettingsPage({
         query: membersListQuery,
         ...authFetchOptions,
       })
+  const receiptSettingPromise: Promise<{
+    data: { enabled: boolean } | null
+    error: unknown
+  }> = client.bugReport
+    .getReporterReceiptEmailSetting({
+      organizationId: activeOrganization.id,
+    })
+    .then((data) => ({
+      data,
+      error: null,
+    }))
+    .catch((error: unknown) => ({
+      data: null,
+      error,
+    }))
   const billingPromise: Promise<{
     data: BillingSnapshot | null
     error: unknown
@@ -150,6 +166,7 @@ export default async function OrganizationSettingsPage({
     { data: membersData, error: membersError },
     { data: invitationData, error: invitationError },
     billingState,
+    receiptSetting,
   ] = await Promise.all([
     authClient.organization.getActiveMemberRole({
       query: {
@@ -165,8 +182,11 @@ export default async function OrganizationSettingsPage({
       ...authFetchOptions,
     }),
     billingPromise,
+    receiptSettingPromise,
   ])
   const currentBillingPlan = billingState.data?.plan ?? "free"
+  const canManageOrganization =
+    memberRoleData?.role === "owner" || memberRoleData?.role === "admin"
   const memberCap = billingState.data?.entitlements.memberCap ?? null
 
   const members = (membersData?.members ?? []).map(
@@ -214,6 +234,30 @@ export default async function OrganizationSettingsPage({
             initialSlug={activeOrganization.slug}
             organizationId={activeOrganization.id}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Bestätigung an den Melder</CardTitle>
+          <CardDescription>
+            Schaltet die Eingangsbestätigung für neue Meldungen dieser
+            Organisation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {receiptSetting.error ? (
+            <p className="text-destructive text-sm">
+              Die Einstellung konnte nicht geladen werden:{" "}
+              {getRequestErrorMessage(receiptSetting.error)}
+            </p>
+          ) : (
+            <ReporterReceiptEmailSetting
+              canManage={canManageOrganization}
+              initialEnabled={receiptSetting.data?.enabled ?? false}
+              organizationId={activeOrganization.id}
+            />
+          )}
         </CardContent>
       </Card>
 

@@ -18,6 +18,18 @@ export const BUG_REPORT_COMMENT_KIND_VALUES = Object.values(
   BUG_REPORT_COMMENT_KIND_OPTIONS
 ) as [BugReportCommentKind, ...BugReportCommentKind[]]
 
+export const BUG_REPORT_COMMENT_PURPOSE_OPTIONS = {
+  question: "question",
+  info: "info",
+} as const
+
+export type BugReportCommentPurpose =
+  (typeof BUG_REPORT_COMMENT_PURPOSE_OPTIONS)[keyof typeof BUG_REPORT_COMMENT_PURPOSE_OPTIONS]
+
+export const BUG_REPORT_COMMENT_PURPOSE_VALUES = Object.values(
+  BUG_REPORT_COMMENT_PURPOSE_OPTIONS
+) as [BugReportCommentPurpose, ...BugReportCommentPurpose[]]
+
 export type BugReportStatus =
   (typeof BUG_REPORT_STATUS_OPTIONS)[keyof typeof BUG_REPORT_STATUS_OPTIONS]
 

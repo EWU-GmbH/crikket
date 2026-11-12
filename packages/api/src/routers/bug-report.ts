@@ -1,6 +1,7 @@
 import {
   addBugReportComment,
   listBugReportComments,
+  listReporterFacingBugReportComments,
 } from "@crikket/bug-reports/procedures/bug-report-comments"
 import {
   deleteBugReport,
@@ -17,6 +18,10 @@ import {
   listBugReports,
   listMyReportedBugReports,
 } from "@crikket/bug-reports/procedures/list-bug-reports"
+import {
+  getReporterReceiptEmailSetting,
+  updateReporterReceiptEmailSetting,
+} from "@crikket/bug-reports/procedures/reporter-receipt-setting"
 import {
   updateBugReport,
   updateBugReportsBulk,
@@ -49,5 +54,8 @@ export const bugReportRouter = {
   updateBulk: updateBugReportsBulk,
   updateVisibility: updateBugReportVisibility,
   listComments: listBugReportComments,
+  listReporterComments: listReporterFacingBugReportComments,
   addComment: addBugReportComment,
+  getReporterReceiptEmailSetting,
+  updateReporterReceiptEmailSetting,
 }
