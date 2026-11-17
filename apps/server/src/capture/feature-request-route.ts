@@ -3,6 +3,7 @@ import { db } from "@crikket/db"
 import { featureRequest } from "@crikket/db/schema/feature-request"
 import {
   createKanCard,
+  getKanCardUrl,
   getKanListPublicIdForOrganization,
 } from "@crikket/kan/client"
 import { ORPCError } from "@orpc/server"
@@ -102,7 +103,11 @@ export async function handleFeatureRequest(input: {
         kind: "feature-request",
         organizationId: authorization.organizationId,
         title: body.title,
+        description: body.description,
         reporterEmail: body.reporterEmail,
+        pageUrl: body.pageUrl,
+        pageTitle: body.pageTitle,
+        ticketUrl: getKanCardUrl(card.publicId),
       },
       `new feature-request ${card.publicId}`
     )

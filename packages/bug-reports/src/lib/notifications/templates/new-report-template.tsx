@@ -10,48 +10,51 @@ import {
   Section,
   Text,
 } from "@react-email/components"
+import type { NewReportEmailContent } from "../new-report-email-content"
 
 type NewReportEmailTemplateProps = {
-  kindLabel: string
-  priorityLabel?: string
-  reporterLabel: string
-  shareUrl?: string
-  title: string
+  content: NewReportEmailContent
 }
 
 export function NewReportEmailTemplate({
-  kindLabel,
-  priorityLabel,
-  reporterLabel,
-  shareUrl,
-  title,
+  content,
 }: NewReportEmailTemplateProps) {
   return (
     <Html>
       <Head />
-      <Preview>{`Neue Meldung eingegangen: ${title}`}</Preview>
+      <Preview>{`Neue Meldung eingegangen: ${content.title}`}</Preview>
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
           <Section style={cardStyle}>
             <Heading style={headingStyle}>Neue Meldung eingegangen</Heading>
             <Text style={textStyle}>
-              {`Es ist ein neuer ${kindLabel} eingegangen:`}
+              {`Es ist ein neuer ${content.kindLabel} eingegangen:`}
             </Text>
-            <Text style={titleStyle}>{title}</Text>
-            <Text style={metaStyle}>{`Gemeldet von: ${reporterLabel}`}</Text>
-            {priorityLabel ? (
-              <Text style={metaStyle}>{`Priorität: ${priorityLabel}`}</Text>
+            <Text style={titleStyle}>{content.title}</Text>
+            {content.details.map((detail) => (
+              <Text key={detail.label} style={metaStyle}>
+                <span style={labelStyle}>{`${detail.label}: `}</span>
+                {detail.value}
+              </Text>
+            ))}
+            {content.description ? (
+              <Section style={descriptionSectionStyle}>
+                <Text style={descriptionLabelStyle}>Beschreibung</Text>
+                <Text style={descriptionStyle}>{content.description.text}</Text>
+                {content.description.truncationNote ? (
+                  <Text style={noteStyle}>
+                    {content.description.truncationNote}
+                  </Text>
+                ) : null}
+              </Section>
             ) : null}
-            {shareUrl ? (
-              <Button href={shareUrl} style={buttonStyle}>
-                Meldung ansehen
+            {content.ticket ? (
+              <Button href={content.ticket.url} style={buttonStyle}>
+                {content.ticket.label}
               </Button>
             ) : null}
           </Section>
-          <Text style={footerStyle}>
-            Sie erhalten diese E-Mail, weil Sie Eigentümer der Organisation
-            sind, der diese Meldung zugeordnet ist.
-          </Text>
+          <Text style={footerStyle}>{content.footer}</Text>
         </Container>
       </Body>
     </Html>
@@ -107,6 +110,45 @@ const metaStyle = {
   color: "#475569",
   fontSize: "13px",
   lineHeight: "20px",
+  margin: "0 0 8px",
+}
+
+const labelStyle = {
+  color: "#0f172a",
+  fontWeight: "600",
+}
+
+const descriptionSectionStyle = {
+  margin: "16px 0 8px",
+}
+
+const descriptionLabelStyle = {
+  color: "#475569",
+  fontSize: "12px",
+  fontWeight: "600",
+  letterSpacing: "0.04em",
+  lineHeight: "18px",
+  margin: "0 0 6px",
+  textTransform: "uppercase" as const,
+}
+
+const descriptionStyle = {
+  backgroundColor: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: "8px",
+  fontSize: "14px",
+  lineHeight: "22px",
+  margin: "0 0 8px",
+  padding: "12px 16px",
+  whiteSpace: "pre-wrap" as const,
+  wordBreak: "break-word" as const,
+}
+
+const noteStyle = {
+  color: "#64748b",
+  fontSize: "12px",
+  fontStyle: "italic",
+  lineHeight: "18px",
   margin: "0 0 8px",
 }
 

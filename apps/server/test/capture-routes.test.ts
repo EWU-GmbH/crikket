@@ -194,6 +194,7 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
 const featureRequestState = {
   inserted: [] as Record<string, unknown>[],
   kanCards: [] as Record<string, unknown>[],
+  notifications: [] as Record<string, unknown>[],
 }
 
 mock.module("@crikket/db", () => ({
@@ -216,11 +217,17 @@ mock.module("@crikket/kan/client", () => ({
     featureRequestState.kanCards.push(input)
     return Promise.resolve({ publicId: "kancard12345" })
   },
+  getKanCardUrl: (publicId: string) =>
+    `https://kan.example.test/cards/${publicId}`,
   getKanListPublicIdForOrganization: () => "kanlist12345",
 }))
 
 mock.module("@crikket/bug-reports/lib/notifications/notify-new-report", () => ({
-  notifyOwnersAboutNewSubmissionInBackground: () => undefined,
+  notifyOwnersAboutNewSubmissionInBackground: (
+    input: Record<string, unknown>
+  ) => {
+    featureRequestState.notifications.push(input)
+  },
 }))
 
 mock.module("@upstash/redis", () => ({
@@ -272,6 +279,7 @@ afterEach(() => {
   mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = false
   featureRequestState.inserted = []
   featureRequestState.kanCards = []
+  featureRequestState.notifications = []
   activePublicKeyStatus = "active"
   activePublicKeyValue = publicKeyRecord.key
   mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = "01234567890123456789012345678901"
@@ -679,6 +687,31 @@ describe("capture feature request route reporter email policy", () => {
 
     expect(response.status).toBe(200)
     expect(featureRequestState.inserted).toHaveLength(1)
+  })
+
+  it("passes the request content to the owner notification", async () => {
+    const { handleFeatureRequest } = await import(
+      CAPTURE_FEATURE_REQUEST_ROUTE_PATH
+    )
+    const response = await handleFeatureRequest({
+      request: createFeatureRequest({
+        description: "Bitte ein dunkles Theme",
+        pageTitle: "Startseite",
+        pageUrl: "https://example.com/start",
+        title: "Dark mode",
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(featureRequestState.notifications).toHaveLength(1)
+    expect(featureRequestState.notifications[0]).toMatchObject({
+      description: "Bitte ein dunkles Theme",
+      kind: "feature-request",
+      pageTitle: "Startseite",
+      pageUrl: "https://example.com/start",
+      ticketUrl: "https://kan.example.test/cards/kancard12345",
+      title: "Dark mode",
+    })
   })
 
   it("rejects feature requests without a reporter email with 400 when the flag is on", async () => {

@@ -1,18 +1,15 @@
 import { db } from "@crikket/db"
 import { member, user } from "@crikket/db/schema/auth"
-import { env } from "@crikket/env/server"
 import { and, eq } from "drizzle-orm"
+import type {
+  NewReportEmailAttachments,
+  NewReportEmailDeviceInfo,
+} from "./new-report-email-content"
 import {
   type NewReportEmailKind,
   sendNewReportEmail,
 } from "./send-new-report-email"
-
-const TRAILING_SLASHES_REGEX = /\/+$/
-
-function getPublicShareOrigin(): string | null {
-  const origin = env.PUBLIC_APP_URL ?? env.CORS_ORIGINS[0] ?? env.BETTER_AUTH_URL
-  return origin ? origin.replace(TRAILING_SLASHES_REGEX, "") : null
-}
+import { getBugReportShareUrl } from "./share-url"
 
 async function loadOwnerRecipients(input: {
   organizationId: string
@@ -51,9 +48,17 @@ export async function notifyOwnersAboutNewSubmission(input: {
   kind: NewReportEmailKind
   organizationId: string
   title: string
+  description?: string | null
   priority?: string | null
   reporterEmail?: string | null
   reportId?: string
+  pageUrl?: string | null
+  pageTitle?: string | null
+  deviceInfo?: NewReportEmailDeviceInfo
+  attachments?: NewReportEmailAttachments | null
+  submittedAt?: Date
+  /** Explicit ticket link (feature requests live in Kan, not in the dashboard). */
+  ticketUrl?: string | null
   excludeUserId?: string | null
 }): Promise<void> {
   const recipients = await loadOwnerRecipients(input)
@@ -61,20 +66,26 @@ export async function notifyOwnersAboutNewSubmission(input: {
     return
   }
 
-  const shareOrigin = getPublicShareOrigin()
-  const shareUrl =
-    input.kind === "bug-report" && input.reportId && shareOrigin
-      ? `${shareOrigin}/s/${input.reportId}`
-      : undefined
+  const ticketUrl =
+    input.ticketUrl ??
+    (input.kind === "bug-report" && input.reportId
+      ? getBugReportShareUrl(input.reportId)
+      : undefined)
 
   for (const to of recipients) {
     await sendNewReportEmail({
       to,
       kind: input.kind,
       title: input.title,
+      description: input.description,
       priority: input.priority,
       reporterLabel: input.reporterEmail?.trim() || "anonym (Widget)",
-      shareUrl,
+      pageUrl: input.pageUrl,
+      pageTitle: input.pageTitle,
+      deviceInfo: input.deviceInfo,
+      attachments: input.attachments,
+      submittedAt: input.submittedAt,
+      ticketUrl,
     })
   }
 }
