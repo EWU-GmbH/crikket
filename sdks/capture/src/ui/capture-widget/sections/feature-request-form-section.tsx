@@ -14,6 +14,7 @@ export function FeatureRequestFormSection(props: {
   onEmailChange: (value: string) => void
   onSubmit: () => void
   onTitleChange: (value: string) => void
+  requireEmail?: boolean
   title: string
 }): React.JSX.Element {
   return (
@@ -46,8 +47,11 @@ export function FeatureRequestFormSection(props: {
         />
       </Field>
       <Field>
-        <Label htmlFor="crikket-feature-email">E-Mail (optional)</Label>
+        <Label htmlFor="crikket-feature-email">
+          {props.requireEmail ? "E-Mail *" : "E-Mail (optional)"}
+        </Label>
         <Input
+          aria-required={props.requireEmail}
           disabled={props.busy}
           id="crikket-feature-email"
           maxLength={320}
@@ -59,7 +63,9 @@ export function FeatureRequestFormSection(props: {
         <p className="m-0 text-muted-foreground text-xs">
           {props.email.trim().length > 0
             ? "Bei Umsetzung informieren wir Sie an diese Adresse."
-            : "Empfohlen für Rückfragen — keine Pflicht. Bei Umsetzung informieren wir Sie per E-Mail."}
+            : props.requireEmail
+              ? "Pflichtfeld — für Rückfragen. Bei Umsetzung informieren wir Sie per E-Mail."
+              : "Empfohlen für Rückfragen — keine Pflicht. Bei Umsetzung informieren wir Sie per E-Mail."}
         </p>
       </Field>
       {props.errorMessage ? (

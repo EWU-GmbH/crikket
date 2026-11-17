@@ -99,6 +99,11 @@ export interface CaptureInitOptions {
   getReporterEmail?: ReporterEmailResolver
 }
 
+export interface CaptureServerPolicy {
+  /** Mirrors CRIKKET_REQUIRE_REPORTER_EMAIL on the server. */
+  requireReporterEmail: boolean
+}
+
 export interface CaptureRuntimeConfig {
   key: string
   host: string

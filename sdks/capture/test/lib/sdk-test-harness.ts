@@ -63,6 +63,10 @@ export const sdkTestState = {
   uiCloseCalls: 0,
   uiShowReviewInputs: [] as ReviewInput[],
   uiShowSuccessUrls: [] as Array<string | undefined>,
+  uiPatches: [] as Record<string, unknown>[],
+  uiEmailPrefills: [] as string[],
+  policyResponse: null as Response | null,
+  policyRequests: [] as string[],
   titlePrefills: [] as string[],
   uiUnmounts: 0,
   startSessionCalls: [] as StartSessionCall[],
@@ -119,7 +123,9 @@ mock.module(MOUNT_CAPTURE_UI_PATH, () => ({
       store: {
         getSnapshot: () => null,
         subscribe: () => () => undefined,
-        patchState: () => undefined,
+        patchState: (patch: Record<string, unknown>) => {
+          sdkTestState.uiPatches.push(patch)
+        },
         openChooser: () => {
           sdkTestState.uiOpenChooserCalls += 1
         },
@@ -134,6 +140,9 @@ mock.module(MOUNT_CAPTURE_UI_PATH, () => ({
           sdkTestState.uiShowSuccessUrls.push(shareUrl)
         },
         showError: () => undefined,
+        applyReporterEmailPrefill: (email: string) => {
+          sdkTestState.uiEmailPrefills.push(email)
+        },
         setTitleIfEmpty: (value: string) => {
           sdkTestState.titlePrefills.push(value)
         },
@@ -217,6 +226,8 @@ mock.module(DEBUGGER_COLLECTOR_PATH, () => ({
   },
 }))
 
+const originalFetch = globalThis.fetch
+
 export function setupCaptureSdkTestHooks(): void {
   beforeAll(async () => {
     captureModule = await import("../../src/index")
@@ -230,6 +241,7 @@ export function setupCaptureSdkTestHooks(): void {
 
   afterAll(() => {
     captureModule?.destroy()
+    globalThis.fetch = originalFetch
     mock.restore()
   })
 }
@@ -265,6 +277,10 @@ export function resetSdkTestState(): void {
   sdkTestState.uiCloseCalls = 0
   sdkTestState.uiShowReviewInputs = []
   sdkTestState.uiShowSuccessUrls = []
+  sdkTestState.uiPatches = []
+  sdkTestState.uiEmailPrefills = []
+  sdkTestState.policyResponse = null
+  sdkTestState.policyRequests = []
   sdkTestState.titlePrefills = []
   sdkTestState.uiUnmounts = 0
   sdkTestState.startSessionCalls = []
@@ -305,6 +321,13 @@ export async function waitFor(
 }
 
 function installBrowserGlobals(): void {
+  globalThis.fetch = ((input: Parameters<typeof fetch>[0]) => {
+    sdkTestState.policyRequests.push(String(input))
+    return Promise.resolve(
+      sdkTestState.policyResponse ?? new Response(null, { status: 404 })
+    )
+  }) as typeof fetch
+
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {

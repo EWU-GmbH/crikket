@@ -6,7 +6,7 @@ import type {
   CaptureUiHandlers,
   CaptureUiStore,
 } from "../../types"
-import { isValidReporterEmail } from "../../utils/reporter-email"
+import { getReporterEmailError } from "../../utils/reporter-email"
 
 const COPY_RESET_DELAY_MS = 1500
 
@@ -153,11 +153,11 @@ export function useCaptureUiHandlers(
           return Promise.resolve()
         }
 
-        const email = draft.email.trim()
-        if (email.length > 0 && !isValidReporterEmail(email)) {
-          input.store.showError(
-            "Bitte geben Sie eine gültige E-Mail-Adresse ein."
-          )
+        const emailError = getReporterEmailError(draft.email, {
+          required: input.store.getSnapshot().requireReporterEmail,
+        })
+        if (emailError) {
+          input.store.showError(emailError)
           return Promise.resolve()
         }
 

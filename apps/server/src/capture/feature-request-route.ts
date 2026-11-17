@@ -8,6 +8,7 @@ import {
 import { ORPCError } from "@orpc/server"
 import { nanoid } from "nanoid"
 import { z } from "zod"
+import { assertReporterEmailIfRequired } from "./reporter-email-policy"
 import {
   authorizeCaptureSubmitRequest,
   buildJsonResponse,
@@ -48,6 +49,8 @@ export async function handleFeatureRequest(input: {
     const body = featureRequestInputSchema.parse(
       (await input.request.json()) as unknown
     )
+
+    assertReporterEmailIfRequired(body.reporterEmail)
 
     const listPublicId = getKanListPublicIdForOrganization({
       kind: "featureRequests",

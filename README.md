@@ -117,6 +117,20 @@ recording bug reports without leaving your product.
 - [Capture SDK README](./sdks/capture/README.md)
 - [Capture quick start docs](https://crikket.io/docs/usage/quick-start)
 
+### Require the reporter email (optional)
+
+By default the email field in the widget is optional. Set this server env
+variable (see `apps/server/.env.example`) to make it mandatory for widget bug
+reports (`/api/embed/bug-report-upload-session`) and widget feature requests
+(`/api/embed/feature-requests`):
+
+| Variable | Values | Default | Effect |
+| --- | --- | --- | --- |
+| `CRIKKET_REQUIRE_REPORTER_EMAIL` | `true` / `false` | `false` | `true`: requests without a valid reporter email are rejected with `400` (`reasonCode: reporter_email_required`). The widget loads the setting from `GET /api/embed/config`, marks the field as required and blocks submit without a valid address. |
+
+The variable only affects the embed endpoints; reports created inside the
+Crikket app are unchanged. Restart the `server` container after changing it.
+
 ## Monorepo Overview
 
 Crikket is a Bun + Turborepo monorepo.

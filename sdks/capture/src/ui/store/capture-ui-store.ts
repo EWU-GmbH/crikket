@@ -208,6 +208,7 @@ function createInitialState(): CaptureUiState {
       reporterEmail: "",
     },
     reviewFormKey: "",
+    requireReporterEmail: false,
     featureRequestDraft: {
       title: "",
       description: "",

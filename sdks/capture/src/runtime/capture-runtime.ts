@@ -3,6 +3,7 @@ import {
   captureScreenshot,
   startDisplayRecording,
 } from "../media/lazy-capture-media"
+import { fetchCaptureServerPolicy } from "../transport/capture-policy-transport"
 import type {
   CapturedMedia,
   CaptureIdentifyInput,
@@ -17,18 +18,18 @@ import type {
 import { mountCaptureUi } from "../ui/mount-capture-ui"
 import type { CaptureReviewSubmitOptions, MountedCaptureUi } from "../ui/types"
 import {
+  normalizeHost,
+  normalizeKey,
+  normalizeSubmitPath,
+  normalizeZIndex,
+} from "../utils"
+import {
   configureReporterIdentity,
   getCachedReporterEmail,
   resetReporterIdentity,
   resolveReporterEmail,
   setReporterEmail,
 } from "./reporter-identity"
-import {
-  normalizeHost,
-  normalizeKey,
-  normalizeSubmitPath,
-  normalizeZIndex,
-} from "../utils"
 
 export class CaptureSdkRuntime implements CaptureRuntimeController {
   private runtimeConfig: CaptureRuntimeConfig | null = null
@@ -54,9 +55,11 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       reporterEmail: options.reporterEmail,
       getReporterEmail: options.getReporterEmail,
     })
-    void resolveReporterEmail().then((email) => {
-      this.applyReporterEmailPrefill(email)
-    })
+    resolveReporterEmail()
+      .then((email) => {
+        this.applyReporterEmailPrefill(email)
+      })
+      .catch(() => undefined)
 
     if (options.autoMount ?? true) {
       this.mount(options.mountTarget)
@@ -122,6 +125,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       },
     })
     this.mountedTarget = mountTarget
+    this.syncServerPolicy(config)
   }
 
   unmount(): void {
@@ -372,6 +376,21 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
     }
 
     this.mountedUi?.store.setTitleIfEmpty(captureTitle)
+  }
+
+  private syncServerPolicy(config: CaptureRuntimeConfig): void {
+    const ui = this.mountedUi
+    fetchCaptureServerPolicy(config)
+      .then((policy) => {
+        if (this.mountedUi !== ui) {
+          return
+        }
+
+        ui?.store.patchState({
+          requireReporterEmail: policy.requireReporterEmail,
+        })
+      })
+      .catch(() => undefined)
   }
 
   private applyReporterEmailPrefill(email: string): void {

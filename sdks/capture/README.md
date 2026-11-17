@@ -94,6 +94,12 @@ identify({ email: session.user.email })
 
 Clear the prefilled email on logout with `identify({ email: null })`.
 
+If the Crikket server runs with `CRIKKET_REQUIRE_REPORTER_EMAIL=true`, the
+widget reads that setting from `GET /api/embed/config`, labels the email field
+as required and blocks submit until a valid address is entered. A prefilled
+email from `reporterEmail`, `getReporterEmail` or `identify()` satisfies the
+requirement. Servers without that endpoint keep the field optional.
+
 `submitPath` is used as the base path for the capture control-plane flow. By
 default the SDK derives these routes from `/api/embed/bug-reports`:
 
