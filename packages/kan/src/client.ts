@@ -152,6 +152,16 @@ export function getAllKanDoneListPublicIds(): string[] {
   return [...ids]
 }
 
+/** Browser link to a Kan card, or null when KAN_BASE_URL is not configured. */
+export function getKanCardUrl(cardPublicId: string): string | null {
+  const baseUrl = env.KAN_BASE_URL?.trim()?.replace(TRAILING_SLASHES_REGEX, "")
+  const publicId = cardPublicId.trim()
+  if (!(baseUrl && publicId)) {
+    return null
+  }
+  return `${baseUrl}/cards/${encodeURIComponent(publicId)}`
+}
+
 /**
  * Create a card on the EWU Kan board.
  * Uses server-side KAN_API_KEY only — never call from the browser/widget.

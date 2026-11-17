@@ -37,6 +37,10 @@ import {
   processBugReportIngestionJob,
   queueBugReportIngestionJob,
 } from "./ingestion-jobs"
+import {
+  readNewReportDeviceInfo,
+  readNewReportPageTitle,
+} from "./notifications/new-report-email-content"
 import { notifyJiraAboutNewBugInBackground } from "./notifications/notify-jira-bug"
 import { notifyOwnersAboutNewSubmissionInBackground } from "./notifications/notify-new-report"
 import { notifyReporterAboutReceiptInBackground } from "./notifications/notify-receipt"
@@ -44,6 +48,7 @@ import { getStorageProvider } from "./storage"
 import {
   buildFallbackTitle,
   formatDurationMs,
+  isAttachmentType,
   metadataInputSchema,
   optionalText,
   visibilityValues,
@@ -489,9 +494,20 @@ export async function finalizeBugReportUpload(input: {
       kind: "bug-report",
       organizationId: uploadSession.organizationId,
       title: uploadSession.title || `Crikket bug ${uploadSession.id}`,
+      description: uploadSession.description,
       priority: uploadSession.priority,
       reporterEmail: uploadSession.reporterEmail,
       reportId: uploadSession.id,
+      submittedAt: captureUploadedAt,
+      pageUrl: uploadSession.url,
+      pageTitle: readNewReportPageTitle(uploadSession.metadata),
+      deviceInfo: readNewReportDeviceInfo(uploadSession.deviceInfo),
+      attachments: {
+        captureType: isAttachmentType(uploadSession.attachmentType)
+          ? uploadSession.attachmentType
+          : null,
+        extraCount: uploadSession.attachments.length,
+      },
       excludeUserId: uploadSession.reporterId,
     },
     `new bug-report ${uploadSession.id}`

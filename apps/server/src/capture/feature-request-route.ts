@@ -3,6 +3,7 @@ import { db } from "@crikket/db"
 import { featureRequest } from "@crikket/db/schema/feature-request"
 import {
   createKanCard,
+  getKanCardUrl,
   getKanListPublicIdForOrganization,
 } from "@crikket/kan/client"
 import { ORPCError } from "@orpc/server"
@@ -63,6 +64,7 @@ export async function handleFeatureRequest(input: {
     }
 
     const featureRequestId = nanoid(12)
+    const createdAt = new Date()
 
     const descriptionParts = [
       body.description,
@@ -94,6 +96,7 @@ export async function handleFeatureRequest(input: {
       description: body.description || null,
       status: "open",
       kanCardPublicId: card.publicId,
+      createdAt,
     })
 
     // Notify org owners about the new feature request.
@@ -102,7 +105,12 @@ export async function handleFeatureRequest(input: {
         kind: "feature-request",
         organizationId: authorization.organizationId,
         title: body.title,
+        description: body.description,
         reporterEmail: body.reporterEmail,
+        submittedAt: createdAt,
+        pageUrl: body.pageUrl,
+        pageTitle: body.pageTitle,
+        ticketUrl: getKanCardUrl(card.publicId),
       },
       `new feature-request ${card.publicId}`
     )
