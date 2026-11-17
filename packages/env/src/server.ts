@@ -45,6 +45,12 @@ export const env = createEnv({
     // Per-org Jira mailbox routing for new widget bug reports:
     // {"<organizationId>":"eut@example.atlassian.net"}
     CRIKKET_JIRA_MAIL_ORG_JSON: z.string().min(2).optional(),
+    // Requires a valid reporter email for widget (embed) bug reports and
+    // feature requests. Default "false" keeps the upstream behaviour (optional).
+    CRIKKET_REQUIRE_REPORTER_EMAIL: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
     ENABLE_PAYMENTS: z
       .enum(["true", "false"])
       .default("true")

@@ -10,6 +10,25 @@ export function isValidReporterEmail(value: string): boolean {
   )
 }
 
+export const REPORTER_EMAIL_REQUIRED_MESSAGE =
+  "Bitte geben Sie Ihre E-Mail-Adresse ein. Die E-Mail-Adresse ist ein Pflichtfeld."
+export const REPORTER_EMAIL_INVALID_MESSAGE =
+  "Geben Sie eine gültige E-Mail-Adresse ein."
+
+export function getReporterEmailError(
+  value: string | undefined,
+  options?: { required?: boolean }
+): string | undefined {
+  const reporterEmail = value?.trim() ?? ""
+  if (reporterEmail.length === 0) {
+    return options?.required ? REPORTER_EMAIL_REQUIRED_MESSAGE : undefined
+  }
+
+  return isValidReporterEmail(reporterEmail)
+    ? undefined
+    : REPORTER_EMAIL_INVALID_MESSAGE
+}
+
 /**
  * Removes the reporter email that earlier widget versions stored in
  * localStorage to prefill the form. The widget no longer stores anything on the

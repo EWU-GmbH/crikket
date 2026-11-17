@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, mock } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test"
 import { fileURLToPath } from "node:url"
 import { z } from "zod"
 
@@ -11,6 +11,12 @@ const CAPTURE_UPLOAD_SESSION_ROUTE_PATH = fileURLToPath(
 const CAPTURE_FINALIZE_ROUTE_PATH = fileURLToPath(
   new URL("../src/capture/finalize-route.ts", import.meta.url)
 )
+const CAPTURE_FEATURE_REQUEST_ROUTE_PATH = fileURLToPath(
+  new URL("../src/capture/feature-request-route.ts", import.meta.url)
+)
+const CAPTURE_CONFIG_ROUTE_PATH = fileURLToPath(
+  new URL("../src/capture/config-route.ts", import.meta.url)
+)
 const CAPTURE_SUBMIT_PROTECTION_PATH = fileURLToPath(
   new URL("../src/capture/protection.ts", import.meta.url)
 )
@@ -22,6 +28,7 @@ const mockedEnv: {
   BETTER_AUTH_URL: string
   CAPTURE_SUBMIT_TOKEN_SECRET: string
   CORS_ORIGINS: string[]
+  CRIKKET_REQUIRE_REPORTER_EMAIL: boolean
   TURNSTILE_SECRET_KEY: string | undefined
   TURNSTILE_SITE_KEY: string | undefined
   UPSTASH_REDIS_REST_TOKEN: string | undefined
@@ -30,6 +37,7 @@ const mockedEnv: {
   BETTER_AUTH_URL: "https://app.crikket.io",
   CAPTURE_SUBMIT_TOKEN_SECRET: "01234567890123456789012345678901",
   CORS_ORIGINS: ["https://app.crikket.io"],
+  CRIKKET_REQUIRE_REPORTER_EMAIL: false,
   TURNSTILE_SECRET_KEY: "turnstile_secret",
   TURNSTILE_SITE_KEY: "turnstile_site",
   UPSTASH_REDIS_REST_TOKEN: "upstash_token",
@@ -115,6 +123,7 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
     hasDebuggerPayload: z.boolean().optional(),
     metadata: z.unknown().optional(),
     priority: z.string().optional(),
+    reporterEmail: z.email().trim().max(320).optional(),
     title: z.string().optional(),
     url: z.string().optional(),
     visibility: z.string().optional(),
@@ -182,6 +191,38 @@ mock.module("@crikket/bug-reports/lib/upload-session", () => ({
   }),
 }))
 
+const featureRequestState = {
+  inserted: [] as Record<string, unknown>[],
+  kanCards: [] as Record<string, unknown>[],
+}
+
+mock.module("@crikket/db", () => ({
+  db: {
+    insert: () => ({
+      values: (values: Record<string, unknown>) => {
+        featureRequestState.inserted.push(values)
+        return Promise.resolve()
+      },
+    }),
+  },
+}))
+
+mock.module("@crikket/db/schema/feature-request", () => ({
+  featureRequest: {},
+}))
+
+mock.module("@crikket/kan/client", () => ({
+  createKanCard: (input: Record<string, unknown>) => {
+    featureRequestState.kanCards.push(input)
+    return Promise.resolve({ publicId: "kancard12345" })
+  },
+  getKanListPublicIdForOrganization: () => "kanlist12345",
+}))
+
+mock.module("@crikket/bug-reports/lib/notifications/notify-new-report", () => ({
+  notifyOwnersAboutNewSubmissionInBackground: () => undefined,
+}))
+
 mock.module("@upstash/redis", () => ({
   Redis: class Redis {
     set(key: string, _value: string, options?: { nx?: boolean; px?: number }) {
@@ -228,6 +269,9 @@ mock.module("@upstash/ratelimit", () => ({
 }))
 
 afterEach(() => {
+  mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = false
+  featureRequestState.inserted = []
+  featureRequestState.kanCards = []
   activePublicKeyStatus = "active"
   activePublicKeyValue = publicKeyRecord.key
   mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = "01234567890123456789012345678901"
@@ -553,6 +597,149 @@ describe("capture upload session route", () => {
   })
 })
 
+describe("capture upload session route reporter email policy", () => {
+  beforeEach(() => {
+    mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = ""
+  })
+
+  it("accepts reports without a reporter email when the flag is off", async () => {
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+    const response = await handleCaptureUploadSession({
+      request: createUploadSessionRequest(),
+    })
+
+    expect(response.status).toBe(200)
+  })
+
+  it("rejects reports without a reporter email with 400 when the flag is on", async () => {
+    mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = true
+
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+    const response = await handleCaptureUploadSession({
+      request: createUploadSessionRequest(),
+    })
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      code: "BAD_REQUEST",
+      data: { reasonCode: "reporter_email_required" },
+      message: expect.stringContaining("E-Mail-Adresse"),
+    })
+  })
+
+  it("rejects an invalid reporter email with 400 regardless of the flag", async () => {
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+
+    for (const required of [false, true]) {
+      mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = required
+      const response = await handleCaptureUploadSession({
+        request: createUploadSessionRequest({
+          body: { reporterEmail: "not-an-email" },
+        }),
+      })
+
+      expect(response.status).toBe(400)
+    }
+  })
+
+  it("accepts reports with a valid reporter email when the flag is on", async () => {
+    mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = true
+
+    const { handleCaptureUploadSession } = await import(
+      CAPTURE_UPLOAD_SESSION_ROUTE_PATH
+    )
+    const response = await handleCaptureUploadSession({
+      request: createUploadSessionRequest({
+        body: { reporterEmail: "melder@example.com" },
+      }),
+    })
+
+    expect(response.status).toBe(200)
+  })
+})
+
+describe("capture feature request route reporter email policy", () => {
+  beforeEach(() => {
+    mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = ""
+  })
+
+  it("accepts feature requests without a reporter email when the flag is off", async () => {
+    const { handleFeatureRequest } = await import(
+      CAPTURE_FEATURE_REQUEST_ROUTE_PATH
+    )
+    const response = await handleFeatureRequest({
+      request: createFeatureRequest({ title: "Dark mode" }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(featureRequestState.inserted).toHaveLength(1)
+  })
+
+  it("rejects feature requests without a reporter email with 400 when the flag is on", async () => {
+    mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = true
+
+    const { handleFeatureRequest } = await import(
+      CAPTURE_FEATURE_REQUEST_ROUTE_PATH
+    )
+    const response = await handleFeatureRequest({
+      request: createFeatureRequest({ title: "Dark mode" }),
+    })
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      data: { reasonCode: "reporter_email_required" },
+    })
+    expect(featureRequestState.kanCards).toHaveLength(0)
+    expect(featureRequestState.inserted).toHaveLength(0)
+  })
+
+  it("accepts feature requests with a valid reporter email when the flag is on", async () => {
+    mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = true
+
+    const { handleFeatureRequest } = await import(
+      CAPTURE_FEATURE_REQUEST_ROUTE_PATH
+    )
+    const response = await handleFeatureRequest({
+      request: createFeatureRequest({
+        reporterEmail: "melder@example.com",
+        title: "Dark mode",
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(featureRequestState.inserted).toHaveLength(1)
+  })
+})
+
+describe("capture config route", () => {
+  it("reports requireReporterEmail=false by default", async () => {
+    const { handleCaptureConfig } = await import(CAPTURE_CONFIG_ROUTE_PATH)
+    const response = handleCaptureConfig()
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      requireReporterEmail: false,
+    })
+  })
+
+  it("reports requireReporterEmail=true when the flag is on", async () => {
+    mockedEnv.CRIKKET_REQUIRE_REPORTER_EMAIL = true
+
+    const { handleCaptureConfig } = await import(CAPTURE_CONFIG_ROUTE_PATH)
+    const response = handleCaptureConfig()
+
+    await expect(response.json()).resolves.toEqual({
+      requireReporterEmail: true,
+    })
+  })
+})
+
 describe("capture finalize route", () => {
   it("finalizes without a finalize token when capture protection is disabled", async () => {
     mockedEnv.CAPTURE_SUBMIT_TOKEN_SECRET = ""
@@ -653,6 +840,18 @@ function createUploadSessionRequest(input?: {
       method: "POST",
     }
   )
+}
+
+function createFeatureRequest(body: Record<string, unknown>): Request {
+  return new Request("https://api.crikket.io/api/embed/feature-requests", {
+    body: JSON.stringify(body),
+    headers: {
+      "content-type": "application/json",
+      origin: validOrigin,
+      "x-crikket-public-key": publicKeyRecord.key,
+    },
+    method: "POST",
+  })
 }
 
 function createFinalizeRequest(input?: {

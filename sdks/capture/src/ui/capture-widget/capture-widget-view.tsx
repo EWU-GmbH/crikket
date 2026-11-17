@@ -43,6 +43,7 @@ export function CaptureWidgetView(props: {
           props.handlers.onSubmitFeatureRequest()
         }}
         onTitleChange={props.handlers.onFeatureRequestTitleChange}
+        requireEmail={props.state.requireReporterEmail}
         title={props.state.featureRequestDraft.title}
       />
     )

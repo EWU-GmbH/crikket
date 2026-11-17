@@ -7,7 +7,7 @@ import {
   type Priority,
 } from "@crikket/shared/constants/priorities"
 import type { CaptureSubmissionDraft } from "../../../types"
-import { isValidReporterEmail } from "../../utils/reporter-email"
+import { getReporterEmailError } from "../../utils/reporter-email"
 
 const priorityValues = new Set<string>(Object.values(PRIORITY_OPTIONS))
 const visibilityValues = new Set<string>(
@@ -26,7 +26,8 @@ export const capturePriorityOptions = [
 ] as const
 
 export function validateReviewDraft(
-  value: CaptureSubmissionDraft
+  value: CaptureSubmissionDraft,
+  options?: { requireReporterEmail?: boolean }
 ): ReviewDraftErrors | undefined {
   const errors: ReviewDraftErrors = {}
 
@@ -50,9 +51,11 @@ export function validateReviewDraft(
     errors.visibility = "Wählen Sie eine gültige Sichtbarkeit."
   }
 
-  const reporterEmail = value.reporterEmail?.trim() ?? ""
-  if (reporterEmail.length > 0 && !isValidReporterEmail(reporterEmail)) {
-    errors.reporterEmail = "Geben Sie eine gültige E-Mail-Adresse ein."
+  const reporterEmailError = getReporterEmailError(value.reporterEmail, {
+    required: options?.requireReporterEmail,
+  })
+  if (reporterEmailError) {
+    errors.reporterEmail = reporterEmailError
   }
 
   return Object.keys(errors).length > 0 ? errors : undefined

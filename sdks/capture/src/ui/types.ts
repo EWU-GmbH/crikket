@@ -28,6 +28,7 @@ export interface CaptureUiState {
   copyLabel: string
   reviewDraft: CaptureSubmissionDraft
   reviewFormKey: string
+  requireReporterEmail: boolean
   featureRequestDraft: {
     title: string
     description: string

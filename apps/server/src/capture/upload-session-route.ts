@@ -9,6 +9,7 @@ import {
   isCaptureSubmitProtectionEnabled,
   verifyCaptureSubmitToken,
 } from "./protection"
+import { assertReporterEmailIfRequired } from "./reporter-email-policy"
 import {
   authorizeCaptureSubmitRequest,
   buildJsonResponse,
@@ -73,6 +74,7 @@ export async function handleCaptureUploadSession(input: {
     }
 
     const requestBody = await getRequestBody(input.request)
+    assertReporterEmailIfRequired(requestBody.reporterEmail)
     const result = await createBugReportUploadSession({
       input: requestBody,
       organizationId: authorization.organizationId,

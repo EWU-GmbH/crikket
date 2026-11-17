@@ -19,6 +19,7 @@ const INITIAL_TOUCHED_STATE: ReviewDraftTouched = {
 
 export function useReviewForm(input: {
   initialDraft: CaptureSubmissionDraft
+  requireReporterEmail?: boolean
   onSubmit: (draft: CaptureSubmissionDraft) => Promise<void> | void
 }): {
   draft: CaptureSubmissionDraft
@@ -34,8 +35,12 @@ export function useReviewForm(input: {
   const [touched, setTouched] = useState(INITIAL_TOUCHED_STATE)
 
   const errors = useMemo(() => {
-    return validateReviewDraft(draft) ?? {}
-  }, [draft])
+    return (
+      validateReviewDraft(draft, {
+        requireReporterEmail: input.requireReporterEmail,
+      }) ?? {}
+    )
+  }, [draft, input.requireReporterEmail])
 
   const visibleErrors = useMemo(() => {
     const nextVisibleErrors: ReviewDraftErrors = {}
@@ -84,7 +89,9 @@ export function useReviewForm(input: {
       visibility: true,
     })
 
-    const submitErrors = validateReviewDraft(draft)
+    const submitErrors = validateReviewDraft(draft, {
+      requireReporterEmail: input.requireReporterEmail,
+    })
     if (submitErrors) {
       return
     }

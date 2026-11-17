@@ -113,6 +113,7 @@ export function ReviewFormSection({
 
   const form = useReviewForm({
     initialDraft: state.reviewDraft,
+    requireReporterEmail: state.requireReporterEmail,
     onSubmit: async (draft) => {
       let submitOptions: CaptureReviewSubmitOptions = {}
 
@@ -303,10 +304,11 @@ export function ReviewFormSection({
 
             <Field data-invalid={Boolean(form.visibleErrors.reporterEmail)}>
               <Label htmlFor={`${formKey}-reporter-email`}>
-                E-Mail (optional)
+                {state.requireReporterEmail ? "E-Mail *" : "E-Mail (optional)"}
               </Label>
               <Input
                 aria-invalid={Boolean(form.visibleErrors.reporterEmail)}
+                aria-required={state.requireReporterEmail}
                 id={`${formKey}-reporter-email`}
                 maxLength={320}
                 onBlur={() => {
@@ -322,7 +324,9 @@ export function ReviewFormSection({
               <p className="m-0 text-muted-foreground text-xs">
                 {(form.draft.reporterEmail?.trim() ?? "").length > 0
                   ? "Bei Erledigung informieren wir Sie an diese Adresse."
-                  : "Empfohlen für Rückfragen — keine Pflicht. Bei Erledigung informieren wir Sie per E-Mail."}
+                  : state.requireReporterEmail
+                    ? "Pflichtfeld — für Rückfragen. Bei Erledigung informieren wir Sie per E-Mail."
+                    : "Empfohlen für Rückfragen — keine Pflicht. Bei Erledigung informieren wir Sie per E-Mail."}
               </p>
               {form.visibleErrors.reporterEmail ? (
                 <FieldError errors={[form.visibleErrors.reporterEmail]} />
