@@ -72,21 +72,28 @@ export async function notifyOwnersAboutNewSubmission(input: {
       ? getBugReportShareUrl(input.reportId)
       : undefined)
 
-  for (const to of recipients) {
-    await sendNewReportEmail({
-      to,
-      kind: input.kind,
-      title: input.title,
-      description: input.description,
-      priority: input.priority,
-      reporterLabel: input.reporterEmail?.trim() || "anonym (Widget)",
-      pageUrl: input.pageUrl,
-      pageTitle: input.pageTitle,
-      deviceInfo: input.deviceInfo,
-      attachments: input.attachments,
-      submittedAt: input.submittedAt,
-      ticketUrl,
-    })
+  for (const [index, to] of recipients.entries()) {
+    try {
+      await sendNewReportEmail({
+        to,
+        kind: input.kind,
+        title: input.title,
+        description: input.description,
+        priority: input.priority,
+        reporterLabel: input.reporterEmail?.trim() || "anonym (Widget)",
+        pageUrl: input.pageUrl,
+        pageTitle: input.pageTitle,
+        deviceInfo: input.deviceInfo,
+        attachments: input.attachments,
+        submittedAt: input.submittedAt,
+        ticketUrl,
+      })
+    } catch (error) {
+      console.error(
+        `[notify] new ${input.kind} mail failed for owner ${index + 1}/${recipients.length} (organization ${input.organizationId})`,
+        error
+      )
+    }
   }
 }
 

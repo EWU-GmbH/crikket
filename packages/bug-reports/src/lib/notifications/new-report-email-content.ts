@@ -27,6 +27,8 @@ const PRIORITY_LABELS: Record<string, string> = {
   low: "Niedrig",
 }
 
+const NO_PRIORITY_VALUE = "none"
+
 const LINE_BREAKS_REGEX = /\r\n?/g
 const EXCESS_BLANK_LINES_REGEX = /\n{3,}/g
 const INLINE_WHITESPACE_REGEX = /\s+/g
@@ -191,10 +193,19 @@ function buildPageSummary(input: {
   return url || title
 }
 
-function isHttpUrl(value: string): boolean {
+function resolvePriorityLabel(
+  priority: string | null | undefined
+): string | undefined {
+  const raw = clipInline(priority, MAX_DETAIL_LENGTH)
+  if (!raw || raw === NO_PRIORITY_VALUE) {
+    return undefined
+  }
+  return PRIORITY_LABELS[raw] ?? raw
+}
+
+function isHttpsUrl(value: string): boolean {
   try {
-    const parsed = new URL(value)
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
+    return new URL(value).protocol === "https:"
   } catch {
     return false
   }
@@ -230,9 +241,7 @@ export function buildNewReportEmailContent(
 ): NewReportEmailContent {
   const kindLabel = KIND_LABELS[input.kind]
   const title = clipInline(input.title, MAX_DETAIL_LENGTH * 2) || "Ohne Titel"
-  const priorityLabel = input.priority
-    ? PRIORITY_LABELS[input.priority]
-    : undefined
+  const priorityLabel = resolvePriorityLabel(input.priority)
   const pageSummary = buildPageSummary(input)
   const deviceSummary = buildDeviceSummary(input.deviceInfo ?? null)
   const attachmentSummary = buildAttachmentSummary(input.attachments)
@@ -257,7 +266,7 @@ export function buildNewReportEmailContent(
 
   const ticketUrl = clean(input.ticketUrl)
   const ticket =
-    ticketUrl && isHttpUrl(ticketUrl)
+    ticketUrl && isHttpsUrl(ticketUrl)
       ? { url: ticketUrl, label: TICKET_LINK_LABELS[input.kind] }
       : null
 

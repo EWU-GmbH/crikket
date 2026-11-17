@@ -64,6 +64,7 @@ export async function handleFeatureRequest(input: {
     }
 
     const featureRequestId = nanoid(12)
+    const createdAt = new Date()
 
     const descriptionParts = [
       body.description,
@@ -95,6 +96,7 @@ export async function handleFeatureRequest(input: {
       description: body.description || null,
       status: "open",
       kanCardPublicId: card.publicId,
+      createdAt,
     })
 
     // Notify org owners about the new feature request.
@@ -105,6 +107,7 @@ export async function handleFeatureRequest(input: {
         title: body.title,
         description: body.description,
         reporterEmail: body.reporterEmail,
+        submittedAt: createdAt,
         pageUrl: body.pageUrl,
         pageTitle: body.pageTitle,
         ticketUrl: getKanCardUrl(card.publicId),

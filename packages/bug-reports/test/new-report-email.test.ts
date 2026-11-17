@@ -127,17 +127,54 @@ describe("new report email content", () => {
     )
   })
 
-  it("drops ticket links that are not http(s)", () => {
-    const content = buildNewReportEmailContent({
+  it("only allows https ticket links", () => {
+    for (const ticketUrl of [
+      "javascript:alert(1)",
+      "http://report.example.test/s/abc123",
+      "ftp://report.example.test/s/abc123",
+      "not a url",
+    ]) {
+      const content = buildNewReportEmailContent({
+        kind: "bug-report",
+        title: "x",
+        reporterLabel: "x",
+        ticketUrl,
+        submittedAt: SUBMITTED_AT,
+      })
+
+      expect(content.ticket).toBeNull()
+      expect(content.textBody).not.toContain(ticketUrl)
+    }
+  })
+
+  it("shows unknown priorities as raw values and hides none", () => {
+    const unknown = buildNewReportEmailContent({
       kind: "bug-report",
       title: "x",
       reporterLabel: "x",
-      ticketUrl: "javascript:alert(1)",
+      priority: "blocker",
       submittedAt: SUBMITTED_AT,
     })
+    expect(detailValue(unknown, "Priorität")).toBe("blocker")
+    expect(unknown.textBody).toContain("Priorität: blocker")
 
-    expect(content.ticket).toBeNull()
-    expect(content.textBody).not.toContain("javascript:")
+    const none = buildNewReportEmailContent({
+      kind: "bug-report",
+      title: "x",
+      reporterLabel: "x",
+      priority: "none",
+      submittedAt: SUBMITTED_AT,
+    })
+    expect(detailValue(none, "Priorität")).toBeUndefined()
+
+    const escaped = buildNewReportEmailContent({
+      kind: "bug-report",
+      title: "x",
+      reporterLabel: "x",
+      priority: "<b>hoch</b>\n",
+      submittedAt: SUBMITTED_AT,
+    })
+    expect(detailValue(escaped, "Priorität")).toBe("<b>hoch</b>")
   })
 
   it("keeps the subject on a single line and clipped", () => {

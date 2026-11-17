@@ -712,6 +712,11 @@ describe("capture feature request route reporter email policy", () => {
       ticketUrl: "https://kan.example.test/cards/kancard12345",
       title: "Dark mode",
     })
+
+    const insertedCreatedAt = featureRequestState.inserted[0]?.createdAt
+    const submittedAt = featureRequestState.notifications[0]?.submittedAt
+    expect(insertedCreatedAt).toBeInstanceOf(Date)
+    expect(submittedAt).toBe(insertedCreatedAt)
   })
 
   it("rejects feature requests without a reporter email with 400 when the flag is on", async () => {

@@ -498,6 +498,7 @@ export async function finalizeBugReportUpload(input: {
       priority: uploadSession.priority,
       reporterEmail: uploadSession.reporterEmail,
       reportId: uploadSession.id,
+      submittedAt: captureUploadedAt,
       pageUrl: uploadSession.url,
       pageTitle: readNewReportPageTitle(uploadSession.metadata),
       deviceInfo: readNewReportDeviceInfo(uploadSession.deviceInfo),
